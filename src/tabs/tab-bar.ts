@@ -4,6 +4,7 @@ import {
   setActive,
   removeTab,
   addTab,
+  reorderTab,
 } from './tab-store';
 import { setEditorModel, getEditor } from '../editor/editor-manager';
 import { openSettings } from '../settings/settings-panel';
@@ -51,6 +52,33 @@ export function renderTabBar(): void {
         removeTab(tab.id);
         const active = getTabs().length > 0 ? getTabs().find((t) => t.id === getActiveId()) : null;
         setEditorModel(active?.model ?? null);
+      }
+    });
+
+    // Drag-and-drop reordering
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer!.effectAllowed = 'move';
+      e.dataTransfer!.setData('text/plain', tab.id);
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+    });
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = 'move';
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', () => {
+      el.classList.remove('drag-over');
+    });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      const fromId = e.dataTransfer!.getData('text/plain');
+      if (fromId && fromId !== tab.id) {
+        reorderTab(fromId, tab.id);
       }
     });
 

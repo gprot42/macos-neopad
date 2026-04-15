@@ -111,6 +111,14 @@ html, body {
   background: var(--btn-hover);
 }
 
+.tab.dragging {
+  opacity: 0.4;
+}
+
+.tab.drag-over {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .tab-new-btn {
   display: flex;
   align-items: center;

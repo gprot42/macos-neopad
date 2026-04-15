@@ -132,6 +132,26 @@ export function setTabLanguage(id: string, language: string): void {
   }
 }
 
+export function moveTab(id: string, direction: -1 | 1): void {
+  const idx = tabs.findIndex((t) => t.id === id);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= tabs.length) return;
+  const tmp = tabs[idx];
+  tabs[idx] = tabs[newIdx];
+  tabs[newIdx] = tmp;
+  notify();
+}
+
+export function reorderTab(fromId: string, toId: string): void {
+  const fromIdx = tabs.findIndex((t) => t.id === fromId);
+  const toIdx = tabs.findIndex((t) => t.id === toId);
+  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+  const [tab] = tabs.splice(fromIdx, 1);
+  tabs.splice(toIdx, 0, tab);
+  notify();
+}
+
 export function getDirtyTabs(): Tab[] {
   return tabs.filter((t) => t.isDirty);
 }
