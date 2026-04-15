@@ -8,6 +8,10 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },
+  build: {
+    // Monaco Editor chunks are intentionally large — suppress misleading warning
+    chunkSizeWarningLimit: 5000,
+  },
   clearScreen: false,
   server: {
     port: 5173,

@@ -6,7 +6,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-VERSION="$(head -1 version.md | tr -d '[:space:]')"
+VERSION="$(awk '/^## Current Version/{getline; getline; print; exit}' version.md | tr -d '[:space:]')"
 
 if [ -z "$VERSION" ]; then
   echo "ERROR: version.md is empty"

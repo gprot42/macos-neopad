@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Neo Edit",
   "version": "0.0.1",
-  "identifier": "com.neoedit.app",
+  "identifier": "com.neoedit.editor",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -28,13 +28,65 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["txt", "text", "log", "conf", "cfg", "ini", "env"],
+        "name": "Plain Text",
+        "role": "Editor",
+        "description": "Plain text file"
+      },
+      {
+        "ext": ["md", "mdx", "markdown"],
+        "name": "Markdown Document",
+        "role": "Editor",
+        "description": "Markdown document"
+      },
+      {
+        "ext": ["docx"],
+        "name": "Word Document",
+        "role": "Editor",
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "description": "Microsoft Word document"
+      },
+      {
+        "ext": ["doc"],
+        "name": "Word 97-2003 Document",
+        "role": "Editor",
+        "mimeType": "application/msword",
+        "description": "Microsoft Word 97-2003 document"
+      },
+      {
+        "ext": ["csv", "tsv"],
+        "name": "Data File",
+        "role": "Editor",
+        "description": "Comma/Tab separated values"
+      },
+      {
+        "ext": ["js", "jsx", "ts", "tsx", "json", "py", "rs", "go", "java", "c", "cpp", "h", "hpp", "cs", "php", "rb", "swift", "sql", "sh", "bash", "zsh"],
+        "name": "Source Code",
+        "role": "Editor",
+        "description": "Source code file"
+      },
+      {
+        "ext": ["html", "htm", "css", "scss", "less", "svg", "xml"],
+        "name": "Web Document",
+        "role": "Editor",
+        "description": "Web document"
+      },
+      {
+        "ext": ["yaml", "yml", "toml"],
+        "name": "Configuration File",
+        "role": "Editor",
+        "description": "Configuration file"
+      }
     ]
   }
 }

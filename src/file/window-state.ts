@@ -77,11 +77,6 @@ export async function startWindowPositionTracking(): Promise<void> {
   await win.onMoved(() => captureState());
   await win.onResized(() => captureState());
 
-  // Save before close
-  await win.onCloseRequested(async () => {
-    await captureState();
-  });
-
-  // Save periodically as safety net
+  // Save periodically as safety net (no onCloseRequested — Rust handles exit)
   setInterval(captureState, 5000);
 }

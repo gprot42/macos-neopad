@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="Neo Edit"
-BUNDLE_ID="com.neoedit.app"
+BUNDLE_ID="com.neoedit.editor"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

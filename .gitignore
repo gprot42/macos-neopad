@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Contains credentials — do not commit
+scripts/run-sign-apple.sh

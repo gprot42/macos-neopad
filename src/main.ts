@@ -3,10 +3,10 @@ import './styles/main.css';
 import './styles/markdown.css';
 import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor } from './editor/editor-manager';
 import { renderTabBar } from './tabs/tab-bar';
-import { onTabsChange, addTab, getActiveTab, setTabLanguage } from './tabs/tab-store';
+import { onTabsChange, addTab, getActiveTab, setTabLanguage, getTabs } from './tabs/tab-store';
 import { settingsStore } from './settings/settings-store';
 import { openSettings } from './settings/settings-panel';
-import { newFile, openFile, saveFile, saveFileAs, closeTab, closeAllFiles } from './file/file-ops';
+import { newFile, openFile, openFileByPath, saveFile, saveFileAs, closeTab, closeAllFiles } from './file/file-ops';
 import { triggerFind, triggerReplace } from './search/search-bar';
 import { availableLanguages } from './editor/languages';
 import { initPreview, togglePreview, showPreviewIfMarkdown, isPreviewVisible, getPreviewHTMLForExport } from './markdown/preview';
@@ -21,6 +21,9 @@ import { registerContentAssist } from './markdown/content-assist';
 import { registerPasteWithFormatting } from './editor/paste-formatting';
 import { restoreSession, startSessionAutoSave } from './file/session-recovery';
 import { restoreWindowPosition, startWindowPositionTracking } from './file/window-state';
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { log } from './utils/logger';
 
 // Print current file
 function printCurrentFile(): void {
@@ -133,6 +136,7 @@ const initialSettings = settingsStore.get();
 document.documentElement.setAttribute('data-theme', initialSettings.theme);
 
 // Initialize Monaco editor
+log.info('Neo Edit starting up, version:', typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown');
 const editorContainer = document.getElementById('editor-container')!;
 const editor = initEditor(editorContainer);
 
@@ -309,8 +313,31 @@ function toggleLanguageDropdown(): void {
 }
 
 // Menu actions from Tauri native menu
-(window as any).__menuAction = (action: string) => {
+function showAboutDialog(version: string) {
+  const existing = document.getElementById('about-dialog');
+  if (existing) { existing.remove(); return; }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'about-dialog';
+  overlay.innerHTML = `
+    <div class="about-box">
+      <div class="about-icon">✦</div>
+      <h2>Neo Edit</h2>
+      <p class="about-version">Version ${version}</p>
+      <p class="about-desc">A fast, tabbed text editor for macOS.<br>Built with Tauri, Monaco &amp; TypeScript.</p>
+      <button class="about-close" onclick="document.getElementById('about-dialog').remove()">Close</button>
+    </div>
+  `;
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+(window as any).__menuAction = (action: string, arg?: string) => {
   switch (action) {
+    case 'about':
+      showAboutDialog(arg || '');
+      break;
     case 'new_file':
     case 'new_tab':
       newFile();
@@ -370,3 +397,51 @@ onTabsChange(() => {
     : `Neo Edit v${__APP_VERSION__}`;
   document.title = title;
 });
+
+// Listen for macOS file-open events (Open With, Send To, drag to dock)
+// Rust always stores files as pending and emits this signal
+listen('check-pending-files', () => {
+  log.info('check-pending-files signal received, polling pending files...');
+  pollPendingFiles();
+});
+
+// Track files we've already opened to avoid duplicates
+const openedPendingFiles = new Set<string>();
+
+// Fetch and open any pending files from the Rust side
+async function pollPendingFiles() {
+  try {
+    const paths = await invoke<string[]>('get_pending_files');
+    if (paths.length === 0) return;
+
+    log.info('got pending files:', JSON.stringify(paths));
+
+    // Check which files are already open (from session recovery or previous poll)
+    const existingPaths = new Set(getTabs().map(t => t.filePath).filter(Boolean));
+
+    for (const filePath of paths) {
+      if (openedPendingFiles.has(filePath)) {
+        log.info('skipping already-opened pending file:', filePath);
+        continue;
+      }
+      if (existingPaths.has(filePath)) {
+        log.info('skipping file already in a tab:', filePath);
+        openedPendingFiles.add(filePath);
+        continue;
+      }
+      openedPendingFiles.add(filePath);
+      openFileByPath(filePath).catch((err) => {
+        log.error('Failed to open pending file:', filePath, err instanceof Error ? err.message : String(err));
+      });
+    }
+  } catch (err) {
+    log.error('Failed to get pending files:', err instanceof Error ? err.message : String(err));
+  }
+}
+
+// Poll pending files at startup, then retry to catch late-arriving files
+log.info('polling pending files at startup...');
+pollPendingFiles();
+setTimeout(() => pollPendingFiles(), 1000);
+setTimeout(() => pollPendingFiles(), 2500);
+setTimeout(() => pollPendingFiles(), 5000);

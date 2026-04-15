@@ -6,10 +6,8 @@
   "scripts": {
     "dev": "cargo tauri dev",
     "dev:vite": "vite",
-    "sync-version": "bash scripts/sync-version.sh",
     "build:vite": "tsc && vite build",
-    "build": "bash scripts/sync-version.sh && cargo tauri build",
-    "build:dmg": "bash scripts/sync-version.sh && bash scripts/build-dmg.sh",
+    "build": "cargo tauri build",
     "preview": "vite preview"
   },
   "devDependencies": {
@@ -19,9 +17,12 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-deep-link": "~2",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-fs": "^2.4.5",
     "@types/turndown": "^5.0.6",
+    "docx": "^9.6.1",
+    "mammoth": "^1.12.0",
     "marked": "^17.0.5",
     "monaco-editor": "^0.55.1",
     "turndown": "^7.2.4"
