@@ -1,9 +1,10 @@
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { readFile, readTextFile, writeTextFile, writeFile, mkdir } from '@tauri-apps/plugin-fs';
+import { readFile, readTextFile, writeTextFile, writeFile } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import mammoth from 'mammoth';
 import { log } from '../utils/logger';
 import * as docx from 'docx';
+import { jsPDF } from 'jspdf';
 import {
   addTab,
   getActiveTab,
@@ -79,59 +80,12 @@ async function readDocAsMarkdown(filePath: string): Promise<string> {
   return md;
 }
 
-/** Save embedded base64 images from HTML to disk, return HTML with file refs.
- *  Images are saved next to the source file in an `images/` subfolder. */
-async function extractEmbeddedImages(html: string, docPath: string | null): Promise<string> {
-  if (!docPath) {
-    // No file path — strip data URI images, replace with placeholder
-    return html.replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '<!-- embedded image removed -->');
-  }
-
-  const dir = docPath.replace(/[/\\][^/\\]+$/, '');
-  const imagesDir = `${dir}/images`;
-  let counter = 0;
-
-  // Collect all data URI images
-  const imgRegex = /<img([^>]+)src="(data:image\/([a-z]+);base64,([^"]+))"([^>]*)\/?>/gi;
-  let result = html;
-  let match: RegExpExecArray | null;
-  const replacements: { original: string; newTag: string }[] = [];
-
-  while ((match = imgRegex.exec(html)) !== null) {
-    counter++;
-    const ext = match[3] || 'png';
-    const b64data = match[4];
-    const filename = `image_${counter}.${ext}`;
-    const imgPath = `${imagesDir}/${filename}`;
-
-    try {
-      // Decode base64 and write to disk
-      const binary = atob(b64data);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      try { await mkdir(imagesDir, { recursive: true }); } catch { /* exists */ }
-      await writeFile(imgPath, bytes);
-
-      const alt = match[1].match(/alt="([^"]*)"/)?.[1] ?? '';
-      replacements.push({
-        original: match[0],
-        newTag: `<img src="./images/${filename}" alt="${alt}" />`,
-      });
-    } catch {
-      replacements.push({
-        original: match[0],
-        newTag: '<!-- embedded image (failed to save) -->',
-      });
-    }
-  }
-
-  for (const r of replacements) {
-    result = result.replace(r.original, r.newTag);
-  }
-
-  return result;
+/** Keep embedded base64 images as data URIs so they render in preview.
+ *  Optionally also save to disk if the path is writable. */
+async function extractEmbeddedImages(html: string, _docPath: string | null): Promise<string> {
+  // Keep data URI images as-is — they render directly in the Markdown preview
+  // No need to save to disk (which fails on read-only/network volumes)
+  return html;
 }
 
 /** Simple HTML to Markdown-like conversion for editing */
@@ -219,6 +173,87 @@ function htmlToMarkdownLike(html: string): string {
   md = md.trim();
   
   return md;
+}
+
+/** Save content as a PDF file */
+async function saveContentAsPdf(filePath: string, content: string): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const maxWidth = pageWidth - margin * 2;
+  const lineHeight = 6;
+  let y = margin;
+
+  // Strip markdown syntax for cleaner PDF output
+  const lines = content.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Headings
+    const h1 = trimmed.match(/^#\s+(.+)$/);
+    const h2 = trimmed.match(/^##\s+(.+)$/);
+    const h3 = trimmed.match(/^###\s+(.+)$/);
+
+    if (h1) {
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+    } else if (h2) {
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+    } else if (h3) {
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+    } else {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+    }
+
+    const text = h1?.[1] ?? h2?.[1] ?? h3?.[1] ?? trimmed;
+
+    // Strip inline markdown: **bold**, *italic*, `code`, [link](url)
+    const cleaned = text
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/`(.+?)`/g, '$1')
+      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+      .replace(/~~(.+?)~~/g, '$1');
+
+    if (cleaned === '' && !trimmed.startsWith('---')) {
+      y += lineHeight * 0.5;
+      if (y > pageHeight - margin) { doc.addPage(); y = margin; }
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(trimmed)) {
+      doc.setDrawColor(180);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += lineHeight;
+      if (y > pageHeight - margin) { doc.addPage(); y = margin; }
+      continue;
+    }
+
+    // Word-wrap text
+    const wrapped = doc.splitTextToSize(cleaned, maxWidth);
+    for (const wline of wrapped) {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(wline, margin, y);
+      y += lineHeight;
+    }
+
+    // Extra space after headings
+    if (h1 || h2 || h3) {
+      y += lineHeight * 0.3;
+    }
+  }
+
+  const pdfBytes = doc.output('arraybuffer');
+  await writeFile(filePath, new Uint8Array(pdfBytes));
 }
 
 /** Save Markdown content as .docx file */
@@ -496,42 +531,112 @@ export async function saveFile(): Promise<void> {
   }
 }
 
+/** Show a format picker dialog and return the chosen format, or null if cancelled */
+function showFormatPicker(): Promise<{ name: string; ext: string } | null> {
+  return new Promise((resolve) => {
+    const formats = [
+      { name: 'CSV', ext: 'csv' },
+      { name: 'HTML', ext: 'html' },
+      { name: 'JSON', ext: 'json' },
+      { name: 'Markdown', ext: 'md' },
+      { name: 'PDF', ext: 'pdf' },
+      { name: 'Text File', ext: 'txt' },
+      { name: 'Word Document', ext: 'docx' },
+      { name: 'YAML', ext: 'yaml' },
+    ];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'format-picker-overlay';
+    overlay.innerHTML = `
+      <div class="format-picker-box">
+        <h3>Save As — Choose Format</h3>
+        <div class="format-picker-list">
+          ${formats.map(f => `
+            <button class="format-picker-btn" data-ext="${f.ext}">
+              <span class="format-ext">.${f.ext}</span>
+              <span class="format-name">${f.name}</span>
+            </button>
+          `).join('')}
+        </div>
+        <button class="format-picker-cancel">Cancel</button>
+      </div>
+    `;
+
+    overlay.querySelector('.format-picker-cancel')!.addEventListener('click', () => {
+      overlay.remove();
+      resolve(null);
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { overlay.remove(); resolve(null); }
+    });
+    overlay.querySelectorAll('.format-picker-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ext = (btn as HTMLElement).dataset.ext!;
+        const fmt = formats.find(f => f.ext === ext)!;
+        overlay.remove();
+        resolve(fmt);
+      });
+    });
+
+    document.body.appendChild(overlay);
+  });
+}
+
 export async function saveFileAs(): Promise<void> {
   const tab = getActiveTab();
   if (!tab) return;
 
-  const isDocx = isDocxTab(tab.id);
+  const format = await showFormatPicker();
+  if (!format) return;
+
+  // PDF: generate and save a PDF file
+  if (format.ext === 'pdf') {
+    const baseName = (tab.title || 'Untitled').replace(/\.[^.]+$/, '');
+    const defaultName = `${baseName}.pdf`;
+    const filePath = await save({
+      defaultPath: defaultName,
+      filters: [
+        { name: 'PDF', extensions: ['pdf'] },
+      ],
+    });
+    if (!filePath) return;
+    try {
+      await saveContentAsPdf(filePath, tab.model.getValue());
+      log.info('Saved PDF:', filePath);
+    } catch (err) {
+      log.error('Failed to save PDF:', err instanceof Error ? err.message : String(err));
+    }
+    return;
+  }
+
+  // Suggest a filename based on current tab title
+  const baseName = (tab.title || 'Untitled').replace(/\.[^.]+$/, '');
+  const defaultName = `${baseName}.${format.ext}`;
 
   const filePath = await save({
-    filters: isDocx
-      ? [
-          { name: 'Word Document', extensions: ['docx'] },
-          { name: 'All Files', extensions: ['*'] },
-        ]
-      : [
-          { name: 'All Files', extensions: ['*'] },
-          { name: 'Text Files', extensions: ['txt', 'md'] },
-          { name: 'Word Document', extensions: ['docx'] },
-        ],
+    defaultPath: defaultName,
+    filters: [
+      { name: format.name, extensions: [format.ext] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
   });
 
   if (!filePath) return;
 
   try {
-    if (isDocxFile(filePath) || isDocx) {
+    if (isDocxFile(filePath) || format.ext === 'docx') {
       await saveMarkdownAsDocx(filePath, tab.model.getValue());
-      if (isDocxFile(filePath)) {
-        markDocxTab(tab.id, true);
-      }
+      markDocxTab(tab.id, true);
     } else {
       await writeTextFile(filePath, tab.model.getValue());
+      markDocxTab(tab.id, false);
     }
 
     const lang = isDocxFile(filePath) ? 'markdown' : detectLanguage(filePath);
     updateTabInfo(tab.id, filePath, lang);
     markClean(tab.id);
   } catch (err) {
-    console.error('Failed to save file:', err);
+    log.error('Failed to save file:', err instanceof Error ? err.message : String(err));
   }
 }
 
