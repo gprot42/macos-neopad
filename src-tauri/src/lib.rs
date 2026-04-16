@@ -341,12 +341,17 @@ pub fn run() {
                     }
                 }
                 tauri::RunEvent::WindowEvent {
+                    label,
                     event: tauri::WindowEvent::CloseRequested { .. },
                     ..
                 } => {
-                    // Force exit when window is closed (red X or Cmd+W)
-                    eprintln!("[Neo Edit] CloseRequested — exiting");
-                    std::process::exit(0);
+                    // Only exit when the main window is closed.
+                    // Tauri may create other internal/short-lived windows whose
+                    // CloseRequested should not terminate the application.
+                    if label == "main" {
+                        eprintln!("[Neo Edit] main window CloseRequested — exiting");
+                        std::process::exit(0);
+                    }
                 }
                 _ => {}
             }

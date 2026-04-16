@@ -484,6 +484,9 @@ export async function openFileByPath(filePath: string): Promise<void> {
     log.info('tab created:', tab.id, 'title:', tab.title);
     if (isDocxFile(filePath)) {
       markDocxTab(tab.id, true);
+      // Auto-open preview so embedded images render
+      const { togglePreview, isPreviewVisible } = await import('../markdown/preview');
+      if (!isPreviewVisible()) togglePreview();
     }
     setEditorModel(tab.model);
     markClean(tab.id);
@@ -531,6 +534,9 @@ export async function openFile(): Promise<void> {
       const tab = addTab(filePath, content, lang);
       if (isDocxFile(filePath)) {
         markDocxTab(tab.id, true);
+        // Auto-open preview so embedded images render
+        const { togglePreview, isPreviewVisible } = await import('../markdown/preview');
+        if (!isPreviewVisible()) togglePreview();
       }
       setEditorModel(tab.model);
       markClean(tab.id);
