@@ -326,15 +326,47 @@ async function saveMarkdownAsDocx(filePath: string, markdown: string): Promise<v
   }
 
   const doc = new docx.Document({
+    numbering: {
+      config: [
+        {
+          reference: 'my-numbering',
+          levels: [
+            {
+              level: 0,
+              format: docx.LevelFormat.DECIMAL,
+              text: '%1.',
+              alignment: docx.AlignmentType.START,
+              style: {
+                paragraph: { indent: { left: 720, hanging: 360 } },
+              },
+            },
+          ],
+        },
+      ],
+    },
     sections: [{
       properties: {},
       children,
     }],
   });
 
-  const buffer = await docx.Packer.toBuffer(doc);
-  const uint8Array = new Uint8Array(buffer);
-  await writeFile(filePath, uint8Array);
+  log.info('saveMarkdownAsDocx: generating docx for:', filePath, 'markdown length:', markdown.length);
+  try {
+    const base64 = await docx.Packer.toBase64String(doc);
+    log.info('saveMarkdownAsDocx: base64 length:', base64.length);
+    const binary = atob(base64);
+    const uint8Array = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      uint8Array[i] = binary.charCodeAt(i);
+    }
+    // Sanity check: .docx files start with PK\x03\x04 (ZIP magic)
+    log.info('saveMarkdownAsDocx: first 4 bytes:', uint8Array[0], uint8Array[1], uint8Array[2], uint8Array[3]);
+    await writeFile(filePath, uint8Array);
+    log.info('saveMarkdownAsDocx: wrote', uint8Array.length, 'bytes');
+  } catch (err) {
+    log.error('saveMarkdownAsDocx FAILED:', err instanceof Error ? err.message : String(err));
+    throw err;
+  }
 }
 
 /** Parse inline markdown formatting (bold, italic, code, links) */

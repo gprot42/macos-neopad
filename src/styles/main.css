@@ -112,7 +112,17 @@ html, body {
 }
 
 .tab.dragging {
-  opacity: 0.4;
+  opacity: 0.85;
+  cursor: grabbing;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border-radius: 6px;
+}
+
+.tab-placeholder {
+  background: var(--accent, #569cd6);
+  opacity: 0.2;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .tab.drag-over {
