@@ -152,6 +152,23 @@ export function reorderTab(fromId: string, toId: string): void {
   notify();
 }
 
+/**
+ * Move a tab to a specific destination index (in the final array, after removal).
+ */
+export function moveTabToIndex(fromId: string, destIdx: number): void {
+  const fromIdx = tabs.findIndex((t) => t.id === fromId);
+  if (fromIdx === -1) return;
+  const [tab] = tabs.splice(fromIdx, 1);
+  const clamped = Math.max(0, Math.min(destIdx, tabs.length));
+  if (clamped === fromIdx) {
+    // No-op: put it back
+    tabs.splice(fromIdx, 0, tab);
+    return;
+  }
+  tabs.splice(clamped, 0, tab);
+  notify();
+}
+
 export function getDirtyTabs(): Tab[] {
   return tabs.filter((t) => t.isDirty);
 }

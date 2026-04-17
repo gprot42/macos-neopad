@@ -47,6 +47,22 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     bracketPairColorization: { enabled: true },
   });
 
+  // Cmd+Up -> go to top, Cmd+Down -> go to bottom
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow, () => {
+    const ed = editor!;
+    ed.setPosition({ lineNumber: 1, column: 1 });
+    ed.revealLine(1);
+  });
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.DownArrow, () => {
+    const ed = editor!;
+    const model = ed.getModel();
+    if (!model) return;
+    const lastLine = model.getLineCount();
+    const lastCol = model.getLineMaxColumn(lastLine);
+    ed.setPosition({ lineNumber: lastLine, column: lastCol });
+    ed.revealLine(lastLine);
+  });
+
   return editor;
 }
 

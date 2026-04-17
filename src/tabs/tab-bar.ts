@@ -4,7 +4,7 @@ import {
   setActive,
   removeTab,
   addTab,
-  reorderTab,
+  moveTabToIndex,
 } from './tab-store';
 import { setEditorModel, getEditor } from '../editor/editor-manager';
 import { openSettings } from '../settings/settings-panel';
@@ -126,18 +126,14 @@ export function renderTabBar(): void {
       if (!dragState || dragState.tabId !== tab.id) return;
 
       if (dragState.placeholder) {
-        // Find the target position based on placeholder location
-        const allEls = Array.from(container.querySelectorAll('.tab:not(.dragging), .tab-placeholder'));
+        // Find the target position based on placeholder location.
+        // allEls contains the non-dragging tabs and the placeholder in the desired order.
+        // The placeholder's index among that list IS the final index of the dragged tab
+        // in the reordered array (after the dragged tab has been removed).
+        const allEls = Array.from(
+          container.querySelectorAll('.tab:not(.dragging), .tab-placeholder'),
+        );
         const placeholderIdx = allEls.indexOf(dragState.placeholder);
-        const tabIds = getTabs().map(t => t.id);
-        const fromIdx = tabIds.indexOf(dragState.tabId);
-
-        // Count actual tabs before the placeholder
-        let toIdx = 0;
-        for (let i = 0; i < placeholderIdx; i++) {
-          if (allEls[i].classList.contains('tab')) toIdx++;
-        }
-        if (toIdx > fromIdx) toIdx--; // adjust since dragged tab is removed first
 
         // Clean up DOM
         dragState.placeholder.remove();
@@ -149,15 +145,36 @@ export function renderTabBar(): void {
         el.style.left = '';
         el.style.pointerEvents = '';
 
-        // Apply reorder
-        if (toIdx !== fromIdx && toIdx >= 0) {
-          const targetId = getTabs()[toIdx >= getTabs().length ? getTabs().length - 1 : toIdx]?.id;
-          if (targetId && targetId !== dragState.tabId) {
-            reorderTab(dragState.tabId, targetId);
-          }
+        if (placeholderIdx >= 0) {
+          moveTabToIndex(dragState.tabId, placeholderIdx);
         }
       }
 
+      // Delay clearing so the subsequent 'click' on this pointer sequence is ignored
+      const wasDragging = dragState.placeholder !== null;
+      dragState = null;
+      if (wasDragging) {
+        // Briefly block click events that follow the drag
+        const blocker = (ev: Event) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+        };
+        window.addEventListener('click', blocker, { capture: true, once: true });
+      }
+    });
+
+    el.addEventListener('pointercancel', () => {
+      if (!dragState || dragState.tabId !== tab.id) return;
+      if (dragState.placeholder) {
+        dragState.placeholder.remove();
+        el.classList.remove('dragging');
+        el.style.position = '';
+        el.style.zIndex = '';
+        el.style.width = '';
+        el.style.top = '';
+        el.style.left = '';
+        el.style.pointerEvents = '';
+      }
       dragState = null;
     });
 
