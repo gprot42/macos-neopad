@@ -15,11 +15,11 @@ export function registerTableActions(): void {
   const editor = getEditor();
   if (!editor) return;
 
-  // Insert table dialog
+  // Insert table dialog (Cmd+Alt+T — Cmd+Shift+T is reserved for Reopen Closed Tab)
   editor.addAction({
     id: 'md.insert-table',
     label: 'Markdown: Insert Table',
-    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyT],
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT],
     precondition: undefined,
     run: (ed) => {
       if (!isMarkdown()) return;
@@ -27,11 +27,11 @@ export function registerTableActions(): void {
     },
   });
 
-  // Align table
+  // Align table (Cmd+Alt+Shift+T)
   editor.addAction({
     id: 'md.align-table',
     label: 'Markdown: Align Table',
-    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyT],
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyT],
     precondition: undefined,
     run: (ed) => {
       if (!isMarkdown()) return;

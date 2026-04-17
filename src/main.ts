@@ -6,7 +6,7 @@ import { renderTabBar } from './tabs/tab-bar';
 import { onTabsChange, addTab, getActiveTab, setTabLanguage, getTabs } from './tabs/tab-store';
 import { settingsStore } from './settings/settings-store';
 import { openSettings } from './settings/settings-panel';
-import { newFile, openFile, openFileByPath, saveFile, saveFileAs, closeTab, closeAllFiles } from './file/file-ops';
+import { newFile, openFile, openFileByPath, saveFile, saveFileAs, closeTab, closeAllFiles, reopenLastClosed } from './file/file-ops';
 import { triggerFind, triggerReplace } from './search/search-bar';
 import { availableLanguages } from './editor/languages';
 import { initPreview, togglePreview, showPreviewIfMarkdown, isPreviewVisible, getPreviewHTMLForExport } from './markdown/preview';
@@ -344,6 +344,9 @@ function showAboutDialog(version: string) {
       break;
     case 'open_file':
       openFile();
+      break;
+    case 'reopen_closed':
+      reopenLastClosed();
       break;
     case 'save':
       saveFile();

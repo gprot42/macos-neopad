@@ -8,6 +8,7 @@ import {
 } from './tab-store';
 import { setEditorModel, getEditor } from '../editor/editor-manager';
 import { openSettings } from '../settings/settings-panel';
+import { pushRecentlyClosed } from '../file/recently-closed';
 
 let dragState: {
   tabId: string;
@@ -40,6 +41,7 @@ export function renderTabBar(): void {
     closeBtn.textContent = '\u00d7';
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (tab.filePath) pushRecentlyClosed(tab.filePath);
       removeTab(tab.id);
       const active = getTabs().length > 0 ? getTabs().find((t) => t.id === getActiveId()) : null;
       setEditorModel(active?.model ?? null);
@@ -58,6 +60,7 @@ export function renderTabBar(): void {
 
     el.addEventListener('auxclick', (e) => {
       if (e.button === 1) {
+        if (tab.filePath) pushRecentlyClosed(tab.filePath);
         removeTab(tab.id);
         const active = getTabs().length > 0 ? getTabs().find((t) => t.id === getActiveId()) : null;
         setEditorModel(active?.model ?? null);

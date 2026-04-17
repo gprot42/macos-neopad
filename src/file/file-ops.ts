@@ -18,6 +18,7 @@ import {
 } from '../tabs/tab-store';
 import { setEditorModel, getEditor } from '../editor/editor-manager';
 import { detectLanguage } from '../editor/languages';
+import { pushRecentlyClosed, popRecentlyClosed } from './recently-closed';
 
 // Track which tabs are .docx files so we know to save back as docx
 const docxTabs = new Set<string>();
@@ -689,6 +690,7 @@ export async function closeTab(): Promise<void> {
     }
   }
 
+  if (tab.filePath) pushRecentlyClosed(tab.filePath);
   docxTabs.delete(tab.id);
   removeTab(tab.id);
   const tabs = getTabs();
@@ -713,7 +715,30 @@ export async function closeAllFiles(): Promise<void> {
       }
     }
   }
+  // Remember every file-backed tab so the user can reopen them
+  for (const t of getTabs()) {
+    if (t.filePath) pushRecentlyClosed(t.filePath);
+  }
   docxTabs.clear();
   closeAll();
   setEditorModel(null);
+}
+
+/**
+ * Reopen the most recently closed file-backed tab. If that file is already open,
+ * pop the next one. No-op when nothing is available.
+ */
+export async function reopenLastClosed(): Promise<void> {
+  while (true) {
+    const path = popRecentlyClosed();
+    if (!path) {
+      log.info('reopenLastClosed: no recently closed files');
+      return;
+    }
+    const alreadyOpen = getTabs().some((t) => t.filePath === path);
+    if (alreadyOpen) continue;
+    log.info('reopenLastClosed: reopening', path);
+    await openFileByPath(path);
+    return;
+  }
 }

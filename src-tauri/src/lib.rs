@@ -149,14 +149,14 @@ pub fn run() {
 
             let handle = app.handle();
 
-            let new_file = MenuItemBuilder::with_id("new_file", "New File")
-                .accelerator("CmdOrCtrl+N")
-                .build(handle)?;
             let new_tab = MenuItemBuilder::with_id("new_tab", "New Tab")
-                .accelerator("CmdOrCtrl+T")
+                .accelerator("CmdOrCtrl+N")
                 .build(handle)?;
             let open = MenuItemBuilder::with_id("open_file", "Open...")
                 .accelerator("CmdOrCtrl+O")
+                .build(handle)?;
+            let reopen_closed = MenuItemBuilder::with_id("reopen_closed", "Reopen Closed Tab")
+                .accelerator("CmdOrCtrl+Shift+T")
                 .build(handle)?;
             let save = MenuItemBuilder::with_id("save", "Save")
                 .accelerator("CmdOrCtrl+S")
@@ -186,11 +186,7 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+H")
                 .build(handle)?;
 
-            let about = MenuItemBuilder::with_id(
-                "about",
-                &format!("Neo Edit v{}", env!("CARGO_PKG_VERSION")),
-            )
-            .build(handle)?;
+            let about = MenuItemBuilder::with_id("about", "About Neo Edit").build(handle)?;
 
             let quit = MenuItemBuilder::with_id("quit", "Quit Neo Edit")
                 .accelerator("CmdOrCtrl+Q")
@@ -203,7 +199,7 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+Shift+O")
                 .build(handle)?;
             let insert_table = MenuItemBuilder::with_id("insert_table", "Insert Table...")
-                .accelerator("CmdOrCtrl+Shift+T")
+                .accelerator("CmdOrCtrl+Alt+T")
                 .build(handle)?;
             let export_html = MenuItemBuilder::with_id("export_html", "Export to HTML...")
                 .accelerator("CmdOrCtrl+Shift+E")
@@ -211,19 +207,12 @@ pub fn run() {
             let export_pdf =
                 MenuItemBuilder::with_id("export_pdf", "Export to PDF...").build(handle)?;
 
+            // === App menu (Neo Edit) — file operations + settings + quit ===
             let app_menu = SubmenuBuilder::new(handle, "Neo Edit")
-                .item(&about)
-                .separator()
-                .item(&settings)
-                .separator()
-                .item(&quit)
-                .build()?;
-
-            let file_menu = SubmenuBuilder::new(handle, "File")
-                .item(&new_file)
                 .item(&new_tab)
                 .separator()
                 .item(&open)
+                .item(&reopen_closed)
                 .separator()
                 .item(&save)
                 .item(&save_as)
@@ -232,8 +221,13 @@ pub fn run() {
                 .item(&close_all)
                 .separator()
                 .item(&print)
+                .separator()
+                .item(&settings)
+                .separator()
+                .item(&quit)
                 .build()?;
 
+            // === Edit menu: standard editing + find/replace ===
             let edit_menu = SubmenuBuilder::new(handle, "Edit")
                 .undo()
                 .redo()
@@ -247,21 +241,31 @@ pub fn run() {
                 .item(&replace)
                 .build()?;
 
-            let markdown_menu = SubmenuBuilder::new(handle, "Markdown")
+            // === View menu: pane toggles ===
+            let view_menu = SubmenuBuilder::new(handle, "View")
                 .item(&toggle_preview)
                 .item(&toggle_outline)
-                .separator()
+                .build()?;
+
+            // === Markdown menu: markdown-specific insert & export ===
+            let markdown_menu = SubmenuBuilder::new(handle, "Markdown")
                 .item(&insert_table)
                 .separator()
                 .item(&export_html)
                 .item(&export_pdf)
                 .build()?;
 
+            // === Help menu ===
+            let help_menu = SubmenuBuilder::new(handle, "Help")
+                .item(&about)
+                .build()?;
+
             let menu = MenuBuilder::new(handle)
                 .item(&app_menu)
-                .item(&file_menu)
                 .item(&edit_menu)
+                .item(&view_menu)
                 .item(&markdown_menu)
+                .item(&help_menu)
                 .build()?;
 
             app.set_menu(menu)?;
