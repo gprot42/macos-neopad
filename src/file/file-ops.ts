@@ -642,6 +642,8 @@ export async function saveFileAs(): Promise<void> {
     try {
       await saveContentAsPdf(filePath, tab.model.getValue());
       log.info('Saved PDF:', filePath);
+      updateTabInfo(tab.id, filePath, tab.language);
+      markClean(tab.id);
     } catch (err) {
       log.error('Failed to save PDF:', err instanceof Error ? err.message : String(err));
     }
@@ -674,6 +676,7 @@ export async function saveFileAs(): Promise<void> {
     const lang = isDocxFile(filePath) ? 'markdown' : detectLanguage(filePath);
     updateTabInfo(tab.id, filePath, lang);
     markClean(tab.id);
+    log.info('saveFileAs complete, title updated:', filePath);
   } catch (err) {
     log.error('Failed to save file:', err instanceof Error ? err.message : String(err));
   }

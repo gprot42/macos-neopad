@@ -161,9 +161,12 @@ editor.focus();
 // Start auto-saving session state
 startSessionAutoSave();
 
-// Restore window position and start tracking
-restoreWindowPosition();
-startWindowPositionTracking();
+// Restore window position first (await so tracking doesn't race with restore),
+// then start tracking movements/resizes.
+(async () => {
+  await restoreWindowPosition();
+  await startWindowPositionTracking();
+})();
 
 // Re-render tabs on change
 onTabsChange(() => {

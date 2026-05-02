@@ -47,7 +47,7 @@ export function openSettings(): void {
     <div class="settings-section">
       <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
         <input type="checkbox" id="setting-restore-window" ${settings.restoreWindowPosition ? 'checked' : ''} style="width: auto; margin: 0;" />
-        Restore window position on startup
+        Restore window position and size on startup
       </label>
     </div>
   `;
