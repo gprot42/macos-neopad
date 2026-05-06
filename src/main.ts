@@ -1,7 +1,7 @@
 import './styles/themes.css';
 import './styles/main.css';
 import './styles/markdown.css';
-import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor } from './editor/editor-manager';
+import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor, initTabLookup } from './editor/editor-manager';
 import { renderTabBar } from './tabs/tab-bar';
 import { onTabsChange, addTab, getActiveTab, setTabLanguage, getTabs } from './tabs/tab-store';
 import { settingsStore } from './settings/settings-store';
@@ -139,6 +139,12 @@ document.documentElement.setAttribute('data-theme', initialSettings.theme);
 log.info('Neo Edit starting up, version:', typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown');
 const editorContainer = document.getElementById('editor-container')!;
 const editor = initEditor(editorContainer);
+
+// Wire tab lookups so setEditorModel can save/restore per-tab view state
+initTabLookup(
+  () => getActiveTab(),
+  (model) => getTabs().find((t) => t.model === model) ?? null,
+);
 
 // Initialize Markdown modules
 initPreview();

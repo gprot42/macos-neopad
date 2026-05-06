@@ -8,6 +8,7 @@ export interface Tab {
   language: string;
   isDirty: boolean;
   model: monaco.editor.ITextModel;
+  viewState: monaco.editor.ICodeEditorViewState | null;
 }
 
 type TabListener = () => void;
@@ -48,7 +49,7 @@ export function addTab(
   const uri = monaco.Uri.parse(`file:///${id}`);
   const model = monaco.editor.createModel(content, lang, uri);
 
-  const tab: Tab = { id, title, filePath, language: lang, isDirty: false, model };
+  const tab: Tab = { id, title, filePath, language: lang, isDirty: false, model, viewState: null };
   tabs.push(tab);
   activeId = id;
 

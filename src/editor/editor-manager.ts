@@ -6,6 +6,19 @@ import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { registerThemes, themeMap } from './themes';
 import { settingsStore } from '../settings/settings-store';
+import type { Tab } from '../tabs/tab-store';
+
+// Injected at init time to avoid a circular dep between editor-manager <-> tab-store
+let getActiveTabFn: (() => Tab | null) | null = null;
+let getTabByModelFn: ((model: monaco.editor.ITextModel) => Tab | null) | null = null;
+
+export function initTabLookup(
+  getActive: () => Tab | null,
+  getByModel: (model: monaco.editor.ITextModel) => Tab | null,
+): void {
+  getActiveTabFn = getActive;
+  getTabByModelFn = getByModel;
+}
 
 // Configure Monaco workers
 self.MonacoEnvironment = {
@@ -80,5 +93,25 @@ export function setEditorTheme(theme: string): void {
 }
 
 export function setEditorModel(model: monaco.editor.ITextModel | null): void {
-  editor?.setModel(model);
+  if (!editor) return;
+
+  // Save view state (cursor pos, scroll, selections) on the outgoing tab
+  if (getActiveTabFn) {
+    const outgoing = getActiveTabFn();
+    if (outgoing) outgoing.viewState = editor.saveViewState();
+  }
+
+  editor.setModel(model);
+
+  // Restore view state for the incoming tab
+  if (model) {
+    const incoming = getTabByModelFn ? getTabByModelFn(model) : null;
+    if (incoming?.viewState) {
+      editor.restoreViewState(incoming.viewState);
+    } else {
+      editor.setPosition({ lineNumber: 1, column: 1 });
+      editor.revealLine(1);
+    }
+    editor.focus();
+  }
 }
