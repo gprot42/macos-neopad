@@ -95,9 +95,12 @@ export function setEditorTheme(theme: string): void {
 export function setEditorModel(model: monaco.editor.ITextModel | null): void {
   if (!editor) return;
 
-  // Save view state (cursor pos, scroll, selections) on the outgoing tab
-  if (getActiveTabFn) {
-    const outgoing = getActiveTabFn();
+  // Identify the outgoing tab by whichever model the editor currently has —
+  // NOT by getActiveTabFn(), because setActive() may have already updated
+  // activeId to the incoming tab before this function is called.
+  const currentModel = editor.getModel();
+  if (currentModel && getTabByModelFn) {
+    const outgoing = getTabByModelFn(currentModel);
     if (outgoing) outgoing.viewState = editor.saveViewState();
   }
 
