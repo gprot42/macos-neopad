@@ -19,9 +19,73 @@ import {
 import { setEditorModel, getEditor } from '../editor/editor-manager';
 import { detectLanguage } from '../editor/languages';
 import { pushRecentlyClosed, popRecentlyClosed } from './recently-closed';
+import { encryptText, decryptText, isEncryptedPayload, isNeoFile } from '../crypto/crypto-manager';
+import { promptPassword, promptNewPassword } from '../crypto/password-dialog';
+import { lockManager } from '../crypto/lock-manager';
 
 // Track which tabs are .docx files so we know to save back as docx
 const docxTabs = new Set<string>();
+
+// ---------------------------------------------------------------------------
+// .neo encrypted file helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Open a .neo file: read raw JSON, prompt for password, decrypt.
+ * Returns the plaintext content and the validated password, or throws on
+ * cancel / wrong password.
+ */
+async function openNeoFile(
+  filePath: string,
+  readFn: () => Promise<string>,
+): Promise<{ content: string; password: string }> {
+  const raw = await readFn();
+
+  if (!isEncryptedPayload(raw)) {
+    // The file has a .neo extension but is not actually encrypted
+    // (could be a plain-text .neo created by another tool — open as-is).
+    return { content: raw, password: '' };
+  }
+
+  let errorMessage: string | undefined;
+  while (true) {
+    const password = await promptPassword(
+      `Enter the password for "${filePath.split('/').pop()}"`,
+      { errorMessage },
+    );
+    if (password === null) throw new Error('Cancelled');
+
+    try {
+      const content = await decryptText(raw, password);
+      return { content, password };
+    } catch {
+      errorMessage = 'Wrong password — please try again.';
+    }
+  }
+}
+
+/**
+ * Show the "Save encrypted" password dialog (new password + confirm), then
+ * encrypt the given content and write it to disk.
+ * Returns the chosen password so it can be stored in the lock manager.
+ */
+async function saveNeoFile(filePath: string, content: string, existingPassword?: string): Promise<string> {
+  let password: string;
+
+  if (existingPassword) {
+    // Re-use the existing password (Cmd+S on an already-open .neo tab).
+    password = existingPassword;
+  } else {
+    // First save — ask the user to set a password.
+    const chosen = await promptNewPassword();
+    if (!chosen) throw new Error('Cancelled');
+    password = chosen;
+  }
+
+  const encrypted = await encryptText(content, password);
+  await writeTextFile(filePath, encrypted);
+  return password;
+}
 
 function isDocxFile(path: string): boolean {
   return path.toLowerCase().endsWith('.docx');
@@ -439,9 +503,20 @@ export async function openFileByPath(filePath: string): Promise<void> {
   try {
     let content: string;
     let lang = detectLanguage(filePath);
-    log.info('detected language:', lang, 'isDocx:', isDocxFile(filePath), 'isDoc:', isDocFile(filePath));
+    log.info('detected language:', lang, 'isDocx:', isDocxFile(filePath), 'isDoc:', isDocFile(filePath), 'isNeo:', isNeoFile(filePath));
 
-    if (isDocxFile(filePath) || isDocFile(filePath)) {
+    if (isNeoFile(filePath)) {
+      // Read via Rust command (bypasses FS scope) then decrypt
+      const raw = await invoke<string>('read_file_text', { path: filePath });
+      const { content: decrypted, password } = await openNeoFile(filePath, async () => raw);
+      content = decrypted;
+      lang = 'plaintext';
+      const tab = addTab(filePath, content, lang);
+      if (password) lockManager.registerEncryptedTab(tab.id, password);
+      setEditorModel(tab.model);
+      markClean(tab.id);
+      log.info('openFileByPath(.neo) complete for:', filePath);
+    } else if (isDocxFile(filePath) || isDocFile(filePath)) {
       // Read binary via Rust command as base64 (bypasses FS scope)
       log.info('invoking read_file_bytes for:', filePath);
       let b64: string;
@@ -474,27 +549,34 @@ export async function openFileByPath(filePath: string): Promise<void> {
       content = htmlToMarkdownLike(cleanedHtml);
       log.info('converted to markdown, length:', content.length);
       lang = 'markdown';
+
+      const tab = addTab(filePath, content, lang);
+      log.info('tab created:', tab.id, 'title:', tab.title);
+      markDocxTab(tab.id, true);
+      // Auto-open preview so embedded images render
+      const { togglePreview, isPreviewVisible } = await import('../markdown/preview');
+      if (!isPreviewVisible()) togglePreview();
+      setEditorModel(tab.model);
+      markClean(tab.id);
+      log.info('openFileByPath complete for:', filePath);
     } else {
       // Read text via Rust command (bypasses FS scope)
       log.info('invoking read_file_text for:', filePath);
       content = await invoke<string>('read_file_text', { path: filePath });
       log.info('read_file_text returned', content.length, 'chars');
-    }
 
-    const tab = addTab(filePath, content, lang);
-    log.info('tab created:', tab.id, 'title:', tab.title);
-    if (isDocxFile(filePath)) {
-      markDocxTab(tab.id, true);
-      // Auto-open preview so embedded images render
-      const { togglePreview, isPreviewVisible } = await import('../markdown/preview');
-      if (!isPreviewVisible()) togglePreview();
+      const tab = addTab(filePath, content, lang);
+      log.info('tab created:', tab.id, 'title:', tab.title);
+      setEditorModel(tab.model);
+      markClean(tab.id);
+      log.info('openFileByPath complete for:', filePath);
     }
-    setEditorModel(tab.model);
-    markClean(tab.id);
-    log.info('openFileByPath complete for:', filePath);
   } catch (err) {
-    log.error('openFileByPath FAILED for:', filePath, err instanceof Error ? err.message : String(err));
-    console.error('[Neo Edit] Failed to open file:', filePath, err);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg !== 'Cancelled') {
+      log.error('openFileByPath FAILED for:', filePath, msg);
+      console.error('[Neo Edit] Failed to open file:', filePath, err);
+    }
   }
 
   getEditor()?.focus();
@@ -505,6 +587,7 @@ export async function openFile(): Promise<void> {
     multiple: true,
     filters: [
       { name: 'All Files', extensions: ['*'] },
+      { name: 'Encrypted Neo File', extensions: ['neo'] },
       { name: 'Text Files', extensions: ['txt', 'md', 'json', 'yaml', 'yml', 'toml', 'xml', 'html', 'css', 'js', 'ts', 'py', 'rs', 'go', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'php', 'rb', 'swift', 'sql', 'sh'] },
       { name: 'Word Documents', extensions: ['docx', 'doc'] },
     ],
@@ -521,7 +604,19 @@ export async function openFile(): Promise<void> {
       let lang = detectLanguage(filePath);
       log.info('openFile dialog: opening', filePath, 'lang:', lang);
 
-      if (isDocxFile(filePath)) {
+      if (isNeoFile(filePath)) {
+        const { content: decrypted, password } = await openNeoFile(
+          filePath,
+          () => readTextFile(filePath),
+        );
+        content = decrypted;
+        lang = 'plaintext';
+        const tab = addTab(filePath, content, lang);
+        if (password) lockManager.registerEncryptedTab(tab.id, password);
+        setEditorModel(tab.model);
+        markClean(tab.id);
+        continue;
+      } else if (isDocxFile(filePath)) {
         content = await readDocxAsMarkdown(filePath);
         lang = 'markdown'; // Force markdown mode for editing
       } else if (isDocFile(filePath)) {
@@ -542,8 +637,11 @@ export async function openFile(): Promise<void> {
       setEditorModel(tab.model);
       markClean(tab.id);
     } catch (err) {
-      log.error('openFile dialog FAILED for:', filePath, err instanceof Error ? err.message : String(err));
-      console.error('Failed to open file:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg !== 'Cancelled') {
+        log.error('openFile dialog FAILED for:', filePath, msg);
+        console.error('Failed to open file:', err);
+      }
     }
   }
 
@@ -556,14 +654,26 @@ export async function saveFile(): Promise<void> {
 
   if (tab.filePath) {
     try {
-      if (isDocxTab(tab.id) || isDocxFile(tab.filePath)) {
+      if (isNeoFile(tab.filePath)) {
+        const existingPassword = lockManager.getPassword(tab.id);
+        const password = await saveNeoFile(tab.filePath, tab.model.getValue(), existingPassword ?? undefined);
+        // Register/refresh the password in the lock manager
+        if (lockManager.isEncryptedTab(tab.id)) {
+          lockManager.updatePassword(tab.id, password);
+        } else {
+          lockManager.registerEncryptedTab(tab.id, password);
+        }
+        markClean(tab.id);
+      } else if (isDocxTab(tab.id) || isDocxFile(tab.filePath)) {
         await saveMarkdownAsDocx(tab.filePath, tab.model.getValue());
+        markClean(tab.id);
       } else {
         await writeTextFile(tab.filePath, tab.model.getValue());
+        markClean(tab.id);
       }
-      markClean(tab.id);
     } catch (err) {
-      console.error('Failed to save file:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg !== 'Cancelled') console.error('Failed to save file:', err);
     }
   } else {
     await saveFileAs();
@@ -574,6 +684,7 @@ export async function saveFile(): Promise<void> {
 function showFormatPicker(): Promise<{ name: string; ext: string } | null> {
   return new Promise((resolve) => {
     const formats = [
+      { name: 'Encrypted Neo File', ext: 'neo' },
       { name: 'CSV', ext: 'csv' },
       { name: 'HTML', ext: 'html' },
       { name: 'JSON', ext: 'json' },
@@ -665,20 +776,29 @@ export async function saveFileAs(): Promise<void> {
   if (!filePath) return;
 
   try {
-    if (isDocxFile(filePath) || format.ext === 'docx') {
+    if (isNeoFile(filePath) || format.ext === 'neo') {
+      // Encrypted save — prompt for a new password
+      const password = await saveNeoFile(filePath, tab.model.getValue());
+      lockManager.registerEncryptedTab(tab.id, password);
+      updateTabInfo(tab.id, filePath, 'plaintext');
+      markClean(tab.id);
+    } else if (isDocxFile(filePath) || format.ext === 'docx') {
       await saveMarkdownAsDocx(filePath, tab.model.getValue());
       markDocxTab(tab.id, true);
+      const lang = 'markdown';
+      updateTabInfo(tab.id, filePath, lang);
+      markClean(tab.id);
     } else {
       await writeTextFile(filePath, tab.model.getValue());
       markDocxTab(tab.id, false);
+      const lang = detectLanguage(filePath);
+      updateTabInfo(tab.id, filePath, lang);
+      markClean(tab.id);
     }
-
-    const lang = isDocxFile(filePath) ? 'markdown' : detectLanguage(filePath);
-    updateTabInfo(tab.id, filePath, lang);
-    markClean(tab.id);
     log.info('saveFileAs complete, title updated:', filePath);
   } catch (err) {
-    log.error('Failed to save file:', err instanceof Error ? err.message : String(err));
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg !== 'Cancelled') log.error('Failed to save file:', msg);
   }
 }
 
@@ -695,6 +815,7 @@ export async function closeTab(): Promise<void> {
 
   if (tab.filePath) pushRecentlyClosed(tab.filePath);
   docxTabs.delete(tab.id);
+  lockManager.removeTab(tab.id);
   removeTab(tab.id);
   const tabs = getTabs();
   const activeId = getActiveId();
@@ -721,6 +842,7 @@ export async function closeAllFiles(): Promise<void> {
   // Remember every file-backed tab so the user can reopen them
   for (const t of getTabs()) {
     if (t.filePath) pushRecentlyClosed(t.filePath);
+    lockManager.removeTab(t.id);
   }
   docxTabs.clear();
   closeAll();

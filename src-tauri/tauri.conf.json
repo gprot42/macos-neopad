@@ -38,6 +38,12 @@
     ],
     "fileAssociations": [
       {
+        "ext": ["neo"],
+        "name": "Encrypted Neo File",
+        "role": "Editor",
+        "description": "Neo Edit encrypted file"
+      },
+      {
         "ext": ["txt", "text", "log", "conf", "cfg", "ini", "env"],
         "name": "Plain Text",
         "role": "Editor",

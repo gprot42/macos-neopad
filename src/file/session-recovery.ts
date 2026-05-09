@@ -1,5 +1,7 @@
 import { getTabs, getActiveId, addTab, setActive, onTabsChange } from '../tabs/tab-store';
 import { setEditorModel, getEditor } from '../editor/editor-manager';
+import { isNeoFile } from '../crypto/crypto-manager';
+import { lockManager } from '../crypto/lock-manager';
 
 const STORAGE_KEY = 'neo-edit-session';
 const SAVE_INTERVAL_MS = 2000;
@@ -11,6 +13,8 @@ interface SavedTab {
   language: string;
   content: string;
   isDirty: boolean;
+  /** True when the tab belongs to an encrypted .neo file */
+  isEncrypted?: boolean;
 }
 
 interface SavedSession {
@@ -27,14 +31,19 @@ function serializeSession(): SavedSession {
   const activeIdx = tabs.findIndex((t) => t.id === activeId);
 
   return {
-    tabs: tabs.map((t) => ({
-      id: t.id,
-      title: t.title,
-      filePath: t.filePath,
-      language: t.language,
-      content: t.model.getValue(),
-      isDirty: t.isDirty,
-    })),
+    tabs: tabs.map((t) => {
+      const encrypted = t.filePath ? isNeoFile(t.filePath) : false;
+      return {
+        id: t.id,
+        title: t.title,
+        filePath: t.filePath,
+        language: t.language,
+        // Never persist plaintext content of encrypted files
+        content: encrypted ? '' : t.model.getValue(),
+        isDirty: encrypted ? false : t.isDirty,
+        isEncrypted: encrypted || undefined,
+      };
+    }),
     activeIdx: Math.max(0, activeIdx),
     timestamp: Date.now(),
   };
@@ -77,8 +86,15 @@ export function restoreSession(): boolean {
 
       const tab = addTab(saved.filePath, saved.content, saved.language);
       // Unsaved content is always dirty
-      if (saved.isDirty || !saved.filePath) {
+      if (saved.isDirty || (!saved.filePath && saved.content)) {
         tab.isDirty = true;
+      }
+      // Mark encrypted tabs as locked — the lock overlay will prompt for the
+      // password when the user activates the tab.
+      if (saved.isEncrypted && saved.filePath) {
+        // Register with an empty password — the tab is locked from the start
+        lockManager.registerEncryptedTab(tab.id, '');
+        lockManager.lockTab(tab.id, '');
       }
       restoredCount++;
     }

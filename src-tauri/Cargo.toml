@@ -30,6 +30,8 @@ tauri-plugin-deep-link = "2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL", "NSAppleEventDescriptor", "NSAppleEventManager", "NSNotification"] }
 dirs = "6.0.0"
+objc2-vision = "0.3.2"
+objc2-core-graphics = "0.3.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

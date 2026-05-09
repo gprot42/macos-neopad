@@ -50,6 +50,28 @@ export function openSettings(): void {
         Restore window position and size on startup
       </label>
     </div>
+
+    <div class="settings-section settings-section-divider">
+      <label class="settings-label-heading">Encryption &amp; Security</label>
+    </div>
+
+    <div class="settings-section">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="setting-autolock-enabled" ${settings.autoLockEnabled ? 'checked' : ''} style="width: auto; margin: 0;" />
+        Auto-lock encrypted files after inactivity
+      </label>
+    </div>
+
+    <div class="settings-section" id="autolock-timeout-section" style="${settings.autoLockEnabled ? '' : 'opacity: 0.4; pointer-events: none;'}">
+      <label>Lock timeout (minutes)</label>
+      <div class="wrap-options">
+        <button class="wrap-btn ${settings.autoLockTimeoutMins === 15 ? 'active' : ''}" data-mins="15">15</button>
+        <button class="wrap-btn ${settings.autoLockTimeoutMins === 30 ? 'active' : ''}" data-mins="30">30</button>
+        <button class="wrap-btn ${settings.autoLockTimeoutMins === 60 ? 'active' : ''}" data-mins="60">60</button>
+        <button class="wrap-btn ${![15, 30, 60].includes(settings.autoLockTimeoutMins) ? 'active' : ''}" data-mins="custom">Custom</button>
+        <input type="number" class="custom-wrap-input" id="setting-custom-timeout" min="1" max="1440" value="${settings.autoLockTimeoutMins}" style="display: ${![15, 30, 60].includes(settings.autoLockTimeoutMins) ? 'block' : 'none'}" />
+      </div>
+    </div>
   `;
 
   overlay.appendChild(panel);
@@ -69,7 +91,7 @@ export function openSettings(): void {
   });
 
   // Wrap column buttons
-  const wrapBtns = panel.querySelectorAll('.wrap-btn');
+  const wrapBtns = panel.querySelectorAll('.wrap-btn[data-col]');
   const customInput = panel.querySelector('#setting-custom-wrap') as HTMLInputElement;
 
   wrapBtns.forEach((btn) => {
@@ -97,6 +119,43 @@ export function openSettings(): void {
   // Restore window position
   panel.querySelector('#setting-restore-window')!.addEventListener('change', (e) => {
     settingsStore.update({ restoreWindowPosition: (e.target as HTMLInputElement).checked });
+  });
+
+  // Auto-lock enabled toggle
+  const autoLockCheckbox = panel.querySelector<HTMLInputElement>('#setting-autolock-enabled')!;
+  const timeoutSection = panel.querySelector<HTMLElement>('#autolock-timeout-section')!;
+
+  autoLockCheckbox.addEventListener('change', () => {
+    const enabled = autoLockCheckbox.checked;
+    settingsStore.update({ autoLockEnabled: enabled });
+    timeoutSection.style.opacity = enabled ? '1' : '0.4';
+    timeoutSection.style.pointerEvents = enabled ? '' : 'none';
+  });
+
+  // Auto-lock timeout buttons
+  const timeoutBtns = panel.querySelectorAll('.wrap-btn[data-mins]');
+  const customTimeout = panel.querySelector<HTMLInputElement>('#setting-custom-timeout')!;
+
+  timeoutBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      timeoutBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mins = btn.getAttribute('data-mins')!;
+      if (mins === 'custom') {
+        customTimeout.style.display = 'block';
+        customTimeout.focus();
+      } else {
+        customTimeout.style.display = 'none';
+        settingsStore.update({ autoLockTimeoutMins: parseInt(mins, 10) });
+      }
+    });
+  });
+
+  customTimeout.addEventListener('input', () => {
+    const val = parseInt(customTimeout.value, 10);
+    if (val >= 1 && val <= 1440) {
+      settingsStore.update({ autoLockTimeoutMins: val });
+    }
   });
 
   // Close on overlay click

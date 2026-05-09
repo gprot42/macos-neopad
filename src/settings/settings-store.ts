@@ -4,6 +4,10 @@ export interface Settings {
   wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded';
   wordWrapColumn: number;
   restoreWindowPosition: boolean;
+  /** Whether encrypted (.neo) files auto-lock after a period of inactivity */
+  autoLockEnabled: boolean;
+  /** Inactivity timeout in minutes before encrypted files are locked */
+  autoLockTimeoutMins: number;
 }
 
 const STORAGE_KEY = 'neo-edit-settings';
@@ -14,6 +18,8 @@ const defaults: Settings = {
   wordWrap: 'wordWrapColumn',
   wordWrapColumn: 80,
   restoreWindowPosition: true,
+  autoLockEnabled: false,
+  autoLockTimeoutMins: 60,
 };
 
 type SettingsListener = (settings: Settings) => void;

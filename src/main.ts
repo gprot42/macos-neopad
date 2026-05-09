@@ -24,6 +24,10 @@ import { restoreWindowPosition, startWindowPositionTracking } from './file/windo
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { log } from './utils/logger';
+import { lockManager, startAutoLock, stopAutoLock, resetActivityTimer } from './crypto/lock-manager';
+import { encryptText, decryptText } from './crypto/crypto-manager';
+import { promptPassword } from './crypto/password-dialog';
+import { readTextFile } from '@tauri-apps/plugin-fs';
 
 // Print current file
 function printCurrentFile(): void {
@@ -193,6 +197,7 @@ settingsStore.onChange((settings) => {
     wordWrap: settings.wordWrap as 'off' | 'on' | 'wordWrapColumn' | 'bounded',
     wordWrapColumn: settings.wordWrapColumn,
   });
+  applyAutoLockSettings(settings.autoLockEnabled, settings.autoLockTimeoutMins);
 });
 
 // Markdown UI visibility — show/hide toolbar, preview, outline on tab switch
@@ -457,3 +462,141 @@ pollPendingFiles();
 setTimeout(() => pollPendingFiles(), 1000);
 setTimeout(() => pollPendingFiles(), 2500);
 setTimeout(() => pollPendingFiles(), 5000);
+
+// ---------------------------------------------------------------------------
+// Lock overlay management
+// ---------------------------------------------------------------------------
+
+const lockOverlay = document.getElementById('lock-overlay')!;
+const lockUnlockBtn = document.getElementById('lock-unlock-btn')!;
+
+/** Show or hide the lock overlay based on the active tab's lock state. */
+function syncLockOverlay(): void {
+  const tab = getActiveTab();
+  if (tab && lockManager.isLocked(tab.id)) {
+    lockOverlay.classList.remove('hidden');
+  } else {
+    lockOverlay.classList.add('hidden');
+  }
+}
+
+/** Lock all currently unlocked encrypted tabs (called by auto-lock timer). */
+async function lockAllEncryptedTabs(): Promise<void> {
+  const unlockedIds = lockManager.getUnlockedTabIds();
+  if (unlockedIds.length === 0) return;
+
+  log.info('auto-lock: locking', unlockedIds.length, 'encrypted tab(s)');
+
+  for (const tabId of unlockedIds) {
+    const password = lockManager.getPassword(tabId);
+    if (!password) continue;
+
+    const matchedTab = getTabs().find((t) => t.id === tabId);
+    if (!matchedTab) continue;
+
+    const plaintext = matchedTab.model.getValue();
+    try {
+      const snapshot = await encryptText(plaintext, password);
+      lockManager.lockTab(tabId, snapshot);
+      matchedTab.model.setValue(''); // clear plaintext from memory
+    } catch (err) {
+      log.error('Failed to lock tab', tabId, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  syncLockOverlay();
+  log.info('auto-lock: all encrypted tabs locked');
+}
+
+/** Unlock the active locked tab by prompting for a password. */
+async function unlockActiveTab(): Promise<void> {
+  const tab = getActiveTab();
+  if (!tab || !lockManager.isLocked(tab.id)) return;
+
+  const snapshot = lockManager.getSnapshot(tab.id);
+
+  // If no snapshot (e.g. restored from session — file needs re-reading), fall
+  // back to reading the file from disk and decrypting it.
+  if (!snapshot || snapshot === '') {
+    // Re-open from file on disk
+    if (!tab.filePath) {
+      alert('Cannot unlock: file path is unknown.');
+      return;
+    }
+
+    let errorMessage: string | undefined;
+    while (true) {
+      const password = await promptPassword(
+        `Enter the password for "${tab.title}"`,
+        { errorMessage },
+      );
+      if (password === null) return; // user cancelled
+
+      try {
+        const raw = await readTextFile(tab.filePath);
+        const content = await decryptText(raw, password);
+        lockManager.unlockTab(tab.id, password);
+        tab.model.setValue(content);
+        break;
+      } catch {
+        errorMessage = 'Wrong password — please try again.';
+      }
+    }
+  } else {
+    // Decrypt the in-memory snapshot
+    let errorMessage: string | undefined;
+    while (true) {
+      const password = await promptPassword(
+        `Enter the password for "${tab.title}"`,
+        { errorMessage },
+      );
+      if (password === null) return;
+
+      try {
+        const content = await decryptText(snapshot, password);
+        lockManager.unlockTab(tab.id, password);
+        tab.model.setValue(content);
+        break;
+      } catch {
+        errorMessage = 'Wrong password — please try again.';
+      }
+    }
+  }
+
+  syncLockOverlay();
+  editor.focus();
+}
+
+// Unlock button click
+lockUnlockBtn.addEventListener('click', () => unlockActiveTab());
+
+// Sync overlay on tab change
+onTabsChange(() => syncLockOverlay());
+
+// Handle auto-lock trigger from the lock manager
+lockManager.onLock(() => {
+  lockAllEncryptedTabs().catch((err) =>
+    log.error('lockAllEncryptedTabs error:', err instanceof Error ? err.message : String(err)),
+  );
+});
+
+// Activity tracking — reset the inactivity timer on any user interaction
+const activityEvents: (keyof WindowEventMap)[] = ['keydown', 'mousemove', 'mousedown', 'touchstart', 'wheel'];
+activityEvents.forEach((event) => {
+  window.addEventListener(event, () => resetActivityTimer(), { passive: true });
+});
+
+// Apply auto-lock settings from the store
+function applyAutoLockSettings(enabled: boolean, timeoutMins: number): void {
+  if (enabled) {
+    startAutoLock(timeoutMins * 60 * 1000);
+    log.info('auto-lock enabled, timeout:', timeoutMins, 'min');
+  } else {
+    stopAutoLock();
+    log.info('auto-lock disabled');
+  }
+}
+
+// Apply initial auto-lock settings
+const { autoLockEnabled, autoLockTimeoutMins } = settingsStore.get();
+applyAutoLockSettings(autoLockEnabled, autoLockTimeoutMins);
