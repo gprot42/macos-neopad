@@ -708,3 +708,42 @@ html, body {
   opacity: 0.5 !important;
   margin-bottom: 0 !important;
 }
+
+/* ── Tab right-click context menu ─────────────────────────── */
+.tab-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 160px;
+  background: var(--panel-bg, #252526);
+  border: 1px solid var(--border, #3e3e42);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text, #ccc);
+  user-select: none;
+}
+
+.tab-context-item {
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-context-item:hover {
+  background: var(--btn-hover, rgba(255,255,255,0.08));
+}
+
+.tab-context-item.danger {
+  color: #e06c75;
+}
+
+.tab-context-item.danger:hover {
+  background: rgba(224,108,117,0.12);
+}
+
+.tab-context-separator {
+  height: 1px;
+  background: var(--border, #3e3e42);
+  margin: 4px 0;
+}

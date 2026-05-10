@@ -26,7 +26,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { log } from './utils/logger';
 import { lockManager, startAutoLock, stopAutoLock, resetActivityTimer } from './crypto/lock-manager';
 import { encryptText, decryptText } from './crypto/crypto-manager';
-import { promptPassword } from './crypto/password-dialog';
+import { promptPassword, promptNewPassword } from './crypto/password-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 
 // Print current file
@@ -508,7 +508,70 @@ async function lockAllEncryptedTabs(): Promise<void> {
   log.info('auto-lock: all encrypted tabs locked');
 }
 
-/** Unlock the active locked tab by prompting for a password. */
+/**
+ * Lock a specific tab by id. If it already has a password (was previously
+ * unlocked), reuse it. Otherwise prompt for a new password.
+ */
+async function lockTabById(tabId: string): Promise<void> {
+  const tab = getTabs().find((t) => t.id === tabId);
+  if (!tab) return;
+  if (lockManager.isLocked(tab.id)) return; // already locked
+
+  let password = lockManager.getPassword(tab.id);
+
+  if (!password) {
+    const pw = await promptNewPassword(`Set a password for "${tab.title}"`);
+    if (!pw) return;
+    password = pw;
+  }
+
+  const plaintext = tab.model.getValue();
+  try {
+    const snapshot = await encryptText(plaintext, password);
+    lockManager.lockTab(tab.id, snapshot);
+    tab.model.setValue('');
+    syncLockOverlay();
+    log.info('Tab locked:', tab.id);
+  } catch (err) {
+    log.error('Failed to lock tab', tab.id, err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
+ * Unlock a specific tab by id (prompts for password).
+ */
+async function unlockTabById(tabId: string): Promise<void> {
+  const tab = getTabs().find((t) => t.id === tabId);
+  if (!tab || !lockManager.isLocked(tab.id)) return;
+
+  const snapshot = lockManager.getSnapshot(tab.id);
+  let errorMessage: string | undefined;
+  while (true) {
+    const password = await promptPassword(`Enter the password for "${tab.title}"`, { errorMessage });
+    if (password === null) return;
+    try {
+      const content = snapshot
+        ? await decryptText(snapshot, password)
+        : tab.filePath
+          ? await decryptText(await readTextFile(tab.filePath), password)
+          : '';
+      lockManager.unlockTab(tab.id, password);
+      tab.model.setValue(content);
+      syncLockOverlay();
+      log.info('Tab unlocked:', tab.id);
+      break;
+    } catch {
+      errorMessage = 'Wrong password — please try again.';
+    }
+  }
+}
+
+// Expose lock/unlock to tab-bar context menu (avoids circular imports)
+(window as any).__lockTabById = (id: string) => lockTabById(id);
+(window as any).__unlockTabById = (id: string) => unlockTabById(id);
+(window as any).__isTabLocked = (id: string) => lockManager.isLocked(id);
+
+/** Lock the active locked tab by prompting for a password. */
 async function unlockActiveTab(): Promise<void> {
   const tab = getActiveTab();
   if (!tab || !lockManager.isLocked(tab.id)) return;

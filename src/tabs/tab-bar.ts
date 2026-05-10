@@ -67,6 +67,65 @@ export function renderTabBar(): void {
       }
     });
 
+    // Right-click context menu
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+
+      // Remove any existing context menu
+      document.getElementById('tab-context-menu')?.remove();
+
+      const menu = document.createElement('div');
+      menu.id = 'tab-context-menu';
+      menu.className = 'tab-context-menu';
+      menu.style.left = `${e.clientX}px`;
+      menu.style.top = `${e.clientY}px`;
+
+      const isLocked = (window as any).__isTabLocked?.(tab.id) ?? false;
+
+      const addItem = (label: string, onClick: () => void, danger = false) => {
+        const item = document.createElement('div');
+        item.className = 'tab-context-item' + (danger ? ' danger' : '');
+        item.textContent = label;
+        item.addEventListener('click', () => {
+          menu.remove();
+          onClick();
+        });
+        menu.appendChild(item);
+      };
+
+      const addSeparator = () => {
+        const sep = document.createElement('div');
+        sep.className = 'tab-context-separator';
+        menu.appendChild(sep);
+      };
+
+      if (isLocked) {
+        addItem('Unlock Tab...', () => (window as any).__unlockTabById?.(tab.id));
+      } else {
+        addItem('Lock Tab...', () => (window as any).__lockTabById?.(tab.id));
+      }
+
+      addSeparator();
+
+      addItem('Close Tab', () => {
+        if (tab.filePath) pushRecentlyClosed(tab.filePath);
+        removeTab(tab.id);
+        const active = getTabs().length > 0 ? getTabs().find((t) => t.id === getActiveId()) : null;
+        setEditorModel(active?.model ?? null);
+      }, true);
+
+      document.body.appendChild(menu);
+
+      // Dismiss on any outside click
+      const dismiss = (ev: MouseEvent) => {
+        if (!menu.contains(ev.target as Node)) {
+          menu.remove();
+          window.removeEventListener('mousedown', dismiss, true);
+        }
+      };
+      window.addEventListener('mousedown', dismiss, { capture: true });
+    });
+
     // Pointer-based drag reordering
     el.addEventListener('pointerdown', (e) => {
       if ((e.target as HTMLElement).classList.contains('close-btn')) return;
