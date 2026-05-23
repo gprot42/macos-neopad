@@ -806,3 +806,13 @@ html, body {
 }
 
 .hl-clear:hover { color: #e06c75; border-color: #e06c75; }
+
+/* ── Kill Monaco word/occurrence highlight boxes ─────────── */
+.monaco-editor .wordHighlight,
+.monaco-editor .wordHighlightStrong,
+.monaco-editor .wordHighlightText,
+.monaco-editor .selectionHighlight {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+}

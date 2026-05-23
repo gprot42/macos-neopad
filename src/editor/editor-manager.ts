@@ -88,7 +88,11 @@ export function getEditor(): monaco.editor.IStandaloneCodeEditor | null {
 }
 
 export function updateEditorOptions(options: monaco.editor.IEditorOptions): void {
-  editor?.updateOptions(options);
+  editor?.updateOptions({
+    ...options,
+    occurrencesHighlight: 'off',
+    selectionHighlight: false,
+  });
 }
 
 export function setEditorTheme(theme: string): void {
