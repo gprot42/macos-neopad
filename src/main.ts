@@ -2,6 +2,8 @@ import './styles/themes.css';
 import './styles/main.css';
 import './styles/markdown.css';
 import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor, initTabLookup } from './editor/editor-manager';
+import { initHighlightToolbar, setHighlightToolbarTab } from './editor/highlight-toolbar';
+import { restoreHighlights, clearDecorations } from './editor/text-highlight';
 import { renderTabBar } from './tabs/tab-bar';
 import { onTabsChange, addTab, getActiveTab, setTabLanguage, getTabs } from './tabs/tab-store';
 import { settingsStore } from './settings/settings-store';
@@ -17,7 +19,7 @@ import { initOutline, toggleOutline, showOutlineIfMarkdown, isOutlineVisible, ge
 import { exportToHTML, exportToPDF } from './markdown/export';
 import { getWordCount, getReadingTime } from './markdown/stats';
 import { scheduleLint, clearLint } from './markdown/lint';
-import { registerContentAssist } from './markdown/content-assist';
+import { registerContentAssist, initImageDrop } from './markdown/content-assist';
 import { registerPasteWithFormatting } from './editor/paste-formatting';
 import { restoreSession, startSessionAutoSave } from './file/session-recovery';
 import { restoreWindowPosition, startWindowPositionTracking } from './file/window-state';
@@ -150,6 +152,12 @@ initTabLookup(
   (model) => getTabs().find((t) => t.model === model) ?? null,
 );
 
+// Init floating highlight toolbar
+initHighlightToolbar(editor, () => getActiveTab());
+
+// Init image drag-and-drop (works in any tab, inserts markdown data-URI)
+initImageDrop();
+
 // Initialize Markdown modules
 initPreview();
 initOutline();
@@ -183,6 +191,7 @@ onTabsChange(() => {
   renderTabBar();
   updateMarkdownUI();
   updateStatusBar();
+  setHighlightToolbarTab(getActiveTab());
 });
 
 // Initial render

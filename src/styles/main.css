@@ -747,3 +747,62 @@ html, body {
   background: var(--border, #3e3e42);
   margin: 4px 0;
 }
+
+/* ── Text colour highlight decorations ───────────────────── */
+.hl-red    { background: rgba(224,108,117,0.35); border-radius: 2px; }
+.hl-orange { background: rgba(209,154,102,0.35); border-radius: 2px; }
+.hl-yellow { background: rgba(229,192,123,0.35); border-radius: 2px; }
+.hl-green  { background: rgba(152,195,121,0.35); border-radius: 2px; }
+.hl-blue   { background: rgba( 97,175,239,0.35); border-radius: 2px; }
+.hl-purple { background: rgba(198,120,221,0.35); border-radius: 2px; }
+.hl-pink   { background: rgba(255,121,198,0.35); border-radius: 2px; }
+
+/* ── Floating highlight colour toolbar ───────────────────── */
+.highlight-toolbar {
+  position: fixed;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--panel-bg, #252526);
+  border: 1px solid var(--border, #3e3e42);
+  border-radius: 6px;
+  padding: 5px 8px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.45);
+  pointer-events: all;
+}
+
+.highlight-toolbar.hidden { display: none; }
+
+.hl-label {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  margin-right: 2px;
+  user-select: none;
+}
+
+.hl-swatch {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.hl-swatch:hover { opacity: 1; transform: scale(1.2); }
+
+.hl-clear {
+  background: transparent;
+  border: 1px solid var(--border, #3e3e42);
+  border-radius: 3px;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 1px 5px;
+  line-height: 1;
+}
+
+.hl-clear:hover { color: #e06c75; border-color: #e06c75; }

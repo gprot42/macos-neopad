@@ -7,6 +7,7 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { registerThemes, themeMap } from './themes';
 import { settingsStore } from '../settings/settings-store';
 import type { Tab } from '../tabs/tab-store';
+import { restoreHighlights, clearDecorations } from './text-highlight';
 
 // Injected at init time to avoid a circular dep between editor-manager <-> tab-store
 let getActiveTabFn: (() => Tab | null) | null = null;
@@ -58,6 +59,9 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     cursorSmoothCaretAnimation: 'on',
     padding: { top: 8 },
     bracketPairColorization: { enabled: true },
+    // Disable the yellow "occurrence highlight" boxes that appear when a word is selected
+    occurrencesHighlight: 'off',
+    selectionHighlight: false,
   });
 
   // Cmd+Up -> go to top, Cmd+Down -> go to bottom
@@ -95,18 +99,19 @@ export function setEditorTheme(theme: string): void {
 export function setEditorModel(model: monaco.editor.ITextModel | null): void {
   if (!editor) return;
 
-  // Identify the outgoing tab by whichever model the editor currently has —
-  // NOT by getActiveTabFn(), because setActive() may have already updated
-  // activeId to the incoming tab before this function is called.
+  // Identify outgoing tab by current model (not activeId which may already be updated)
   const currentModel = editor.getModel();
   if (currentModel && getTabByModelFn) {
     const outgoing = getTabByModelFn(currentModel);
-    if (outgoing) outgoing.viewState = editor.saveViewState();
+    if (outgoing) {
+      outgoing.viewState = editor.saveViewState();
+      clearDecorations(editor, outgoing.id);
+    }
   }
 
   editor.setModel(model);
 
-  // Restore view state for the incoming tab
+  // Restore view state and highlights for the incoming tab
   if (model) {
     const incoming = getTabByModelFn ? getTabByModelFn(model) : null;
     if (incoming?.viewState) {
@@ -115,6 +120,7 @@ export function setEditorModel(model: monaco.editor.ITextModel | null): void {
       editor.setPosition({ lineNumber: 1, column: 1 });
       editor.revealLine(1);
     }
+    if (incoming) restoreHighlights(editor, incoming);
     editor.focus();
   }
 }

@@ -1,6 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { getEditor } from '../editor/editor-manager';
-import { getActiveTab } from '../tabs/tab-store';
+import { getActiveTab, updateTabInfo } from '../tabs/tab-store';
 
 // Top ~100 emoji shortcodes
 const emojiMap: Record<string, string> = {
@@ -115,4 +115,58 @@ function setupPasteUrlHandler(): void {
 export function disposeContentAssist(): void {
   completionDisposable?.dispose();
   completionDisposable = null;
+}
+
+// ── Image drag-and-drop ──────────────────────────────────────────────────────
+// Works for any tab (not just markdown). Reads the dropped image as a base64
+// data URI and inserts  ![](data:image/...;base64,...)  at the cursor.
+
+export function initImageDrop(): void {
+  const editorDom = document.getElementById('editor-container');
+  if (!editorDom) return;
+
+  editorDom.addEventListener('dragover', (e) => {
+    const items = e.dataTransfer?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        e.preventDefault();
+        e.dataTransfer!.dropEffect = 'copy';
+        return;
+      }
+    }
+  });
+
+  editorDom.addEventListener('drop', (e) => {
+    const items = e.dataTransfer?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUri = reader.result as string;
+          const editor = getEditor();
+          if (!editor) return;
+          const pos = editor.getPosition();
+          if (!pos) return;
+          const insertText = `![${file.name}](${dataUri})`;
+          editor.executeEdits('drop-image', [{
+            range: new (monaco as any).Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
+            text: insertText,
+          }]);
+          editor.focus();
+          // Switch to markdown so the preview can render the image
+          const tab = getActiveTab();
+          if (tab && tab.language !== 'markdown') {
+            updateTabInfo(tab.id, tab.filePath ?? '', 'markdown');
+          }
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+  });
 }
