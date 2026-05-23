@@ -64,20 +64,60 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     selectionHighlight: false,
   });
 
-  // Inject a runtime <style> tag AFTER Monaco's own injected styles so it wins
-  // by document order without needing !important on every rule.
+  // ── Kill Monaco word/occurrence highlight boxes ────────────────────────────
+  // Monaco 0.55 injects CSS like `.vs-dark.monaco-editor .wordHighlight { … }`
+  // (two-class selector = specificity 30) AFTER page load, so a static .css
+  // file can never win.  In addition, Monaco 0.55 uses CSS custom properties
+  // (--vscode-editor-wordHighlight*) as the source of colour for these rules.
+  //
+  // Three-layer defence:
+  //   1. `occurrencesHighlight: 'off'` / `selectionHighlight: false` in create()
+  //   2. Runtime <style> injected after editor.create() that:
+  //      a) zeroes the CSS variables Monaco reads for highlight colours
+  //      b) targets the decoration classes with high-specificity selectors AND
+  //         !important to beat Monaco's injected styles regardless of order
+  //   3. WordHighlighter contribution disabled via its internal API
   if (!document.getElementById('neo-kill-highlights')) {
     const s = document.createElement('style');
     s.id = 'neo-kill-highlights';
     s.textContent = `
-      .monaco-editor .wordHighlight,
-      .monaco-editor .wordHighlightStrong,
-      .monaco-editor .wordHighlightText,
-      .monaco-editor .wordHighlightTextBorder,
-      .monaco-editor .wordHighlightBorder,
-      .monaco-editor .wordHighlightStrongBorder,
-      .monaco-editor .selectionHighlight,
-      .monaco-editor .selectionHighlightBorder {
+      /* 2a: Zero out the CSS custom-property values Monaco 0.55 uses */
+      .monaco-editor {
+        --vscode-editor-wordHighlightBackground: transparent !important;
+        --vscode-editor-wordHighlightBorder: transparent !important;
+        --vscode-editor-wordHighlightStrongBackground: transparent !important;
+        --vscode-editor-wordHighlightStrongBorder: transparent !important;
+        --vscode-editor-wordHighlightTextBackground: transparent !important;
+        --vscode-editor-wordHighlightTextBorder: transparent !important;
+        --vscode-editor-selectionHighlightBackground: transparent !important;
+        --vscode-editor-selectionHighlightBorder: transparent !important;
+      }
+      /* 2b: Also target the decoration CSS classes directly.
+             Use three selectors to match Monaco's own two-class specificity. */
+      .vs .monaco-editor .wordHighlight,
+      .vs-dark .monaco-editor .wordHighlight,
+      .hc-black .monaco-editor .wordHighlight,
+      .vs .monaco-editor .wordHighlightStrong,
+      .vs-dark .monaco-editor .wordHighlightStrong,
+      .hc-black .monaco-editor .wordHighlightStrong,
+      .vs .monaco-editor .wordHighlightText,
+      .vs-dark .monaco-editor .wordHighlightText,
+      .hc-black .monaco-editor .wordHighlightText,
+      .vs .monaco-editor .wordHighlightBorder,
+      .vs-dark .monaco-editor .wordHighlightBorder,
+      .hc-black .monaco-editor .wordHighlightBorder,
+      .vs .monaco-editor .wordHighlightStrongBorder,
+      .vs-dark .monaco-editor .wordHighlightStrongBorder,
+      .hc-black .monaco-editor .wordHighlightStrongBorder,
+      .vs .monaco-editor .wordHighlightTextBorder,
+      .vs-dark .monaco-editor .wordHighlightTextBorder,
+      .hc-black .monaco-editor .wordHighlightTextBorder,
+      .vs .monaco-editor .selectionHighlight,
+      .vs-dark .monaco-editor .selectionHighlight,
+      .hc-black .monaco-editor .selectionHighlight,
+      .vs .monaco-editor .selectionHighlightBorder,
+      .vs-dark .monaco-editor .selectionHighlightBorder,
+      .hc-black .monaco-editor .selectionHighlightBorder {
         background: transparent !important;
         background-color: transparent !important;
         border: none !important;
@@ -87,6 +127,15 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     `;
     document.head.appendChild(s);
   }
+
+  // 3: Disable the WordHighlighter contribution directly so it never fires
+  //    (safe: stop() clears pending timers & decorations; the contribution
+  //     checks occurrencesHighlight option on each cursor move so with the
+  //     option set to 'off' it will not re-arm itself)
+  try {
+    const wh = editor.getContribution('editor.contrib.wordHighlighter');
+    if (wh) (wh as unknown as { stop(): void }).stop();
+  } catch { /* ignore if contribution doesn't exist in this build */ }
 
   // Cmd+Up -> go to top, Cmd+Down -> go to bottom
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow, () => {
