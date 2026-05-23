@@ -59,10 +59,34 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     cursorSmoothCaretAnimation: 'on',
     padding: { top: 8 },
     bracketPairColorization: { enabled: true },
-    // Disable the yellow "occurrence highlight" boxes that appear when a word is selected
+    // Disable the "occurrence highlight" boxes that appear when a word is selected
     occurrencesHighlight: 'off',
     selectionHighlight: false,
   });
+
+  // Inject a runtime <style> tag AFTER Monaco's own injected styles so it wins
+  // by document order without needing !important on every rule.
+  if (!document.getElementById('neo-kill-highlights')) {
+    const s = document.createElement('style');
+    s.id = 'neo-kill-highlights';
+    s.textContent = `
+      .monaco-editor .wordHighlight,
+      .monaco-editor .wordHighlightStrong,
+      .monaco-editor .wordHighlightText,
+      .monaco-editor .wordHighlightTextBorder,
+      .monaco-editor .wordHighlightBorder,
+      .monaco-editor .wordHighlightStrongBorder,
+      .monaco-editor .selectionHighlight,
+      .monaco-editor .selectionHighlightBorder {
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+    `;
+    document.head.appendChild(s);
+  }
 
   // Cmd+Up -> go to top, Cmd+Down -> go to bottom
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow, () => {
