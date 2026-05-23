@@ -62,6 +62,17 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     // Disable the "occurrence highlight" boxes that appear when a word is selected
     occurrencesHighlight: 'off',
     selectionHighlight: false,
+    // Disable Monaco's Unicode highlight feature — it draws yellow boxes around
+    // non-breaking spaces, zero-width chars, ambiguous chars, non-ASCII letters,
+    // etc.  In markdown text these appear constantly (after bold markers etc).
+    unicodeHighlight: {
+      ambiguousCharacters: false,
+      invisibleCharacters: false,
+      nonBasicASCII: false,
+      includeComments: false,
+      includeStrings: false,
+    },
+    renderControlCharacters: false,
   });
 
   // ── Kill Monaco word/occurrence highlight boxes ────────────────────────────
@@ -165,6 +176,14 @@ export function updateEditorOptions(options: monaco.editor.IEditorOptions): void
     ...options,
     occurrencesHighlight: 'off',
     selectionHighlight: false,
+    unicodeHighlight: {
+      ambiguousCharacters: false,
+      invisibleCharacters: false,
+      nonBasicASCII: false,
+      includeComments: false,
+      includeStrings: false,
+    },
+    renderControlCharacters: false,
   });
 }
 
