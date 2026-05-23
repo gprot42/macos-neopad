@@ -1,5 +1,18 @@
 import * as monaco from 'monaco-editor';
 
+// Colour tokens that produce the yellow "occurrence highlight" boxes.
+// Setting them all to #00000000 (fully transparent) kills the boxes in every theme.
+const NO_HIGHLIGHT: Record<string, string> = {
+  'editor.wordHighlightBackground':            '#00000000',
+  'editor.wordHighlightBorder':                '#00000000',
+  'editor.wordHighlightStrongBackground':      '#00000000',
+  'editor.wordHighlightStrongBorder':          '#00000000',
+  'editor.wordHighlightTextBackground':        '#00000000',
+  'editor.wordHighlightTextBorder':            '#00000000',
+  'editor.selectionHighlightBackground':       '#00000000',
+  'editor.selectionHighlightBorder':           '#00000000',
+};
+
 export function registerThemes(): void {
   monaco.editor.defineTheme('neo-light', {
     base: 'vs',
@@ -54,6 +67,7 @@ export function registerThemes(): void {
       'focusBorder': '#0969da',
       'list.activeSelectionBackground': '#ddf4ff',
       'list.hoverBackground': '#eaeef2',
+      ...NO_HIGHLIGHT,
     },
   });
 
@@ -68,6 +82,7 @@ export function registerThemes(): void {
       'editorCursor.foreground': '#0078d4',
       'editor.selectionBackground': '#264f78',
       'editor.lineHighlightBackground': '#2a2a2a',
+      ...NO_HIGHLIGHT,
     },
   });
 
@@ -126,8 +141,10 @@ export function registerThemes(): void {
       'focusBorder': '#7aa2f7',
       'list.activeSelectionBackground': '#2e3c64',
       'list.hoverBackground': '#1f2335',
+      ...NO_HIGHLIGHT,
     },
   });
+
   monaco.editor.defineTheme('neo-mariana', {
     base: 'vs-dark',
     inherit: true,
@@ -183,6 +200,7 @@ export function registerThemes(): void {
       'focusBorder': '#5fb4b4',
       'list.activeSelectionBackground': '#4c566a60',
       'list.hoverBackground': '#2d3440',
+      ...NO_HIGHLIGHT,
     },
   });
 }
