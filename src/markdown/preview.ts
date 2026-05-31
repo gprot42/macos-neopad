@@ -9,6 +9,81 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let scrollDisposable: { dispose(): void } | null = null;
 let contentDisposable: { dispose(): void } | null = null;
 
+// Bumped on every renderPreview() call so async mermaid work from a stale
+// render can detect it has been superseded and bail out.
+let renderSeq = 0;
+
+// ── Mermaid integration ─────────────────────────────────────────────────────
+// marked turns ```mermaid fences into <div class="mermaid-block">…</div> (with
+// the graph source HTML-escaped inside).  After the HTML is written into the
+// preview iframe we walk those divs and replace each with an inline SVG that
+// mermaid renders in the parent document (the SVG is self-contained, so it
+// transplants cleanly into the iframe).
+type MermaidApi = {
+  initialize(cfg: Record<string, unknown>): void;
+  render(id: string, text: string): Promise<{ svg: string }>;
+};
+let mermaidApi: MermaidApi | null = null;
+let mermaidLoad: Promise<MermaidApi> | null = null;
+let mermaidCounter = 0;
+
+function loadMermaid(): Promise<MermaidApi> {
+  if (mermaidApi) return Promise.resolve(mermaidApi);
+  if (!mermaidLoad) {
+    mermaidLoad = import('mermaid').then((m) => {
+      mermaidApi = m.default as unknown as MermaidApi;
+      return mermaidApi;
+    });
+  }
+  return mermaidLoad;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Custom code renderer: divert ```mermaid fences, fall back to default for the rest.
+marked.use({
+  renderer: {
+    code({ text, lang }: { text: string; lang?: string }) {
+      if ((lang ?? '').trim().toLowerCase() === 'mermaid') {
+        return `<div class="mermaid-block">${escapeHtml(text)}</div>`;
+      }
+      return false; // use marked's default code renderer
+    },
+  },
+});
+
+async function renderMermaidBlocks(doc: Document, seq: number): Promise<void> {
+  const blocks = Array.from(doc.querySelectorAll<HTMLElement>('.mermaid-block:not(.mermaid-done)'));
+  if (blocks.length === 0) return;
+
+  const mermaid = await loadMermaid();
+  if (seq !== renderSeq) return; // superseded while loading
+
+  const theme = settingsStore.get().theme === 'light' ? 'default' : 'dark';
+  mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'loose', fontFamily: 'inherit' });
+
+  for (const block of blocks) {
+    const code = block.textContent ?? '';
+    const id = `mmd-${++mermaidCounter}`;
+    try {
+      const { svg } = await mermaid.render(id, code);
+      if (seq !== renderSeq) return; // doc was rewritten; abort
+      block.innerHTML = svg;
+      block.classList.add('mermaid-done');
+    } catch (e) {
+      if (seq !== renderSeq) return;
+      block.innerHTML = `<pre class="mermaid-error">Mermaid error: ${escapeHtml(String(e))}</pre>`;
+      block.classList.add('mermaid-done');
+    }
+  }
+}
+
 const previewStyles: Record<string, string> = {
   light: `
     body { background: #fff; color: #24292f; }
@@ -88,6 +163,9 @@ function getPreviewHTML(markdown: string): string {
   p { margin: 0 0 16px; }
   ul, ol { padding-left: 2em; margin: 0 0 16px; }
   li { margin: 4px 0; }
+  .mermaid-block { margin: 16px 0; text-align: center; overflow-x: auto; }
+  .mermaid-block svg { max-width: 100%; height: auto; }
+  .mermaid-error { color: #f7768e; text-align: left; white-space: pre-wrap; }
   ${css}
 </style></head><body>${html}</body></html>`;
 }
@@ -103,11 +181,13 @@ function renderPreview(): void {
   const content = tab.model.getValue();
   const doc = iframe.contentDocument;
   if (doc) {
+    const seq = ++renderSeq;
     const scrollY = doc.documentElement?.scrollTop ?? 0;
     doc.open();
     doc.write(getPreviewHTML(content));
     doc.close();
     doc.documentElement.scrollTop = scrollY;
+    void renderMermaidBlocks(doc, seq);
   }
 }
 
