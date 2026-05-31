@@ -13,6 +13,50 @@ const NO_HIGHLIGHT: Record<string, string> = {
   'editor.selectionHighlightBorder':           '#00000000',
 };
 
+// Markdown-specific syntax colours.  Every Monaco markdown token carries the
+// `.md` postfix, so these rules are scoped to markdown only and never affect
+// other languages.  Tokens come from Monaco's markdown Monarch grammar:
+//   keyword.md          -> headers (#) and list markers (- * + 1.)
+//   strong.md           -> **bold** / __bold__
+//   emphasis.md         -> *italic* / _italic_
+//   variable.md         -> `inline code`
+//   variable.source.md  -> fenced/indented code-block content
+//   string.md           -> code fences / indented code lines
+//   string.link.md      -> [text](url) links and ![alt](src) images
+//   string.target.md    -> {reference} targets
+//   comment.md          -> > blockquotes (and HTML comments)
+//   meta.separator.md   -> --- / *** horizontal rules
+//   keyword.table       -> table pipes / header cells
+interface MarkdownPalette {
+  header: string;
+  strong: string;
+  emphasis: string;
+  code: string;
+  codeBlock: string;
+  fence: string;
+  link: string;
+  linkTarget: string;
+  quote: string;
+  hr: string;
+  table: string;
+}
+
+function markdownRules(c: MarkdownPalette): monaco.editor.ITokenThemeRule[] {
+  return [
+    { token: 'keyword.md',         foreground: c.header,     fontStyle: 'bold' },
+    { token: 'strong.md',          foreground: c.strong,     fontStyle: 'bold' },
+    { token: 'emphasis.md',        foreground: c.emphasis,   fontStyle: 'italic' },
+    { token: 'variable.md',        foreground: c.code },
+    { token: 'variable.source.md', foreground: c.codeBlock },
+    { token: 'string.md',          foreground: c.fence },
+    { token: 'string.link.md',     foreground: c.link,       fontStyle: 'underline' },
+    { token: 'string.target.md',   foreground: c.linkTarget },
+    { token: 'comment.md',         foreground: c.quote,      fontStyle: 'italic' },
+    { token: 'meta.separator.md',  foreground: c.hr,         fontStyle: 'bold' },
+    { token: 'keyword.table',      foreground: c.table },
+  ];
+}
+
 export function registerThemes(): void {
   monaco.editor.defineTheme('neo-light', {
     base: 'vs',
@@ -44,6 +88,11 @@ export function registerThemes(): void {
       { token: 'key', foreground: '0550ae' },
       { token: 'metatag', foreground: '116329' },
       { token: 'metatag.content', foreground: '0a3069' },
+      ...markdownRules({
+        header: '0550ae', strong: '953800', emphasis: '8250df', code: '0a3069',
+        codeBlock: '0a3069', fence: '6a737d', link: '0969da', linkTarget: '116329',
+        quote: '6a737d', hr: '8250df', table: '0550ae',
+      }),
     ],
     colors: {
       'editor.background': '#ffffff',
@@ -74,7 +123,13 @@ export function registerThemes(): void {
   monaco.editor.defineTheme('neo-dark', {
     base: 'vs-dark',
     inherit: true,
-    rules: [],
+    rules: [
+      ...markdownRules({
+        header: '569cd6', strong: 'd7ba7d', emphasis: 'dcdcaa', code: 'ce9178',
+        codeBlock: 'b5cea8', fence: '808080', link: '4ec9b0', linkTarget: '9cdcfe',
+        quote: '6a9955', hr: 'c586c0', table: '4ec9b0',
+      }),
+    ],
     colors: {
       'editor.background': '#1e1e1e',
       'editor.foreground': '#d4d4d4',
@@ -118,6 +173,11 @@ export function registerThemes(): void {
       { token: 'key', foreground: '73daca' },
       { token: 'metatag', foreground: 'f7768e' },
       { token: 'metatag.content', foreground: '9ece6a' },
+      ...markdownRules({
+        header: '7aa2f7', strong: 'ff9e64', emphasis: 'e0af68', code: 'bb9af7',
+        codeBlock: '9ece6a', fence: '565f89', link: '73daca', linkTarget: '7dcfff',
+        quote: '9aa5ce', hr: 'bb9af7', table: '7dcfff',
+      }),
     ],
     colors: {
       'editor.background': '#1a1b26',
@@ -177,6 +237,11 @@ export function registerThemes(): void {
       { token: 'key', foreground: '5fb4b4' },
       { token: 'metatag', foreground: 'ec5f67' },
       { token: 'metatag.content', foreground: '99c794' },
+      ...markdownRules({
+        header: '6699cc', strong: 'f99157', emphasis: 'fac761', code: 'c594c5',
+        codeBlock: '99c794', fence: '8d9eb3', link: '5fb4b4', linkTarget: '5fb4b4',
+        quote: '8d9eb3', hr: 'c594c5', table: '5fb4b4',
+      }),
     ],
     colors: {
       'editor.background': '#303841',
