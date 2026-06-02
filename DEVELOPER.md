@@ -1,4 +1,4 @@
-# Neo Edit — Developer Notes
+# NeoPad — Developer Notes
 
 ## Architecture Overview
 
@@ -15,16 +15,16 @@
 
 ```bash
 # Development server
-./run.sh
+./start.sh
 
 # Type-check only (no emit)
-npx tsc --noEmit
+bunx tsc --noEmit
 
 # Rust compile check
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-Version is the single source of truth in `version.md`. The `scripts/sync-version.sh` script propagates it to `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` before every build.
+Version is the single source of truth in `version.md`. The `scripts/
 
 ---
 
@@ -41,8 +41,8 @@ build → sign → notarize → install to /Applications → create DMG
 Create a personal wrapper script (already in `.gitignore` to protect credentials):
 
 ```bash
-# scripts/run-sign-apple.sh
-./scripts/build-sign-install.sh \
+# scripts/run-build-sign-install.sh
+./scripts/02-build-sign-install.sh \
   --identity "Developer ID Application: Your Name (TEAMID)" \
   --apple-id "you@email.com" \
   --team-id "ABCD123456" \
@@ -52,14 +52,14 @@ Create a personal wrapper script (already in `.gitignore` to protect credentials
 Then run:
 
 ```bash
-./scripts/run-sign-apple.sh
+./scripts/run-build-sign-install.sh
 ```
 
-### `build-sign-install.sh` — full reference
+### `02-build-sign-install.sh` — full reference
 
 ```
 Usage:
-  ./scripts/build-sign-install.sh \
+  ./scripts/02-build-sign-install.sh \
     --identity   "Developer ID Application: Your Name (TEAMID)"  # required
     --apple-id   "you@email.com"                                 # required for notarize
     --team-id    "ABCD123456"                                     # required for notarize
@@ -82,7 +82,7 @@ Usage:
 | 1 — Build | Runs `sync-version.sh`, `bun run build:vite`, `cargo tauri build` |
 | 2 — Sign | Signs nested dylibs/frameworks then the main `.app` with Developer ID + `--options runtime` + `--timestamp` |
 | 3 — Notarize | Submits a zip to Apple's Notary Service via `notarytool`, waits for approval, staples the ticket |
-| 4 — Install | Removes old `/Applications/Neo Edit.app`, copies new bundle, registers with Launch Services, restarts Finder |
+| 4 — Install | Removes old `/Applications/NeoPad.app`, copies new bundle, registers with Launch Services, restarts Finder |
 | 5 — DMG | Creates a compressed DMG with `hdiutil`, signs it, notarizes it |
 
 ### Credentials
@@ -176,9 +176,9 @@ Saving back to `.docx` uses the `docx` npm package to reconstruct a Word documen
 **Root cause:** macOS Gatekeeper blocks ad-hoc signed apps (signed with `codesign --sign -`) from appearing in Finder's "Open With" submenu. `spctl --assess` returns `rejected` for ad-hoc signatures.
 
 **What works:**
-- `open -a "Neo Edit" /path/to/file.docx` (terminal)  
-- Finder → right-click file → "Open With" → "Other…" → select `/Applications/Neo Edit.app`  
-- Finder right-click → **Quick Actions** → **"Open with Neo Edit"** (Automator service installed at `~/Library/Services/Open with Neo Edit.workflow`)
+- `open -a "NeoPad" /path/to/file.docx` (terminal)  
+- Finder → right-click file → "Open With" → "Other…" → select `/Applications/NeoPad.app`  
+- Finder right-click → **Quick Actions** → **"Open with NeoPad"** (Automator service installed at `~/Library/Services/Open with NeoPad.workflow`)
 - The deep-link plugin receives the file path correctly once the app is launched via any of the above methods
 
 **Permanent fix:** Sign the app with a valid Apple Developer ID certificate:
@@ -205,7 +205,7 @@ After proper signing, the app will pass `spctl --assess` and appear in Finder's 
 
 ## Code Signing
 
-The app is signed with a **Developer ID Application** certificate and notarized via Apple's Notary Service. This is handled automatically by `scripts/build-sign-install.sh` — see the **Production Build** section above.
+The app is signed with a **Developer ID Application** certificate and notarized via Apple's Notary Service. This is handled automatically by `scripts/02-build-sign-install.sh` — see the **Production Build** section above.
 
 A notarized app:
 - Passes `spctl --assess` with `source=Notarized Developer ID`
@@ -216,13 +216,13 @@ A notarized app:
 
 ## Bundle Identifier
 
-The bundle identifier is `com.neoedit.editor`.
+The bundle identifier is `com.neopad.editor`.
 
-> **Note:** An earlier version used `com.neoedit.app`. This caused Tauri build warnings because `.app` is reserved as a macOS bundle extension, and also confused Launch Services. If you see stale entries for `com.neoedit.app` in the LS database, unregister them:
+> **Note:** An earlier version used `com.neopad.editor`. This caused Tauri build warnings because `.app` is reserved as a macOS bundle extension, and also confused Launch Services. If you see stale entries for `com.neopad.editor` in the LS database, unregister them:
 >
 > ```bash
 > /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
->   -u "/path/to/old/Neo Edit.app"
+>   -u "/path/to/old/NeoPad.app"
 > ```
 
 ---
@@ -232,7 +232,7 @@ The bundle identifier is `com.neoedit.editor`.
 Unsaved tabs are auto-saved every 30 seconds to:
 
 ```
-~/Library/Application Support/com.neoedit.editor/recovery/
+~/Library/Application Support/com.neopad.editor/recovery/
 ```
 
 On next launch, any recovery files are offered for restoration. This prevents data loss if the app crashes or is force-quit.

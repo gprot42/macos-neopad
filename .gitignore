@@ -1,27 +1,115 @@
-# Logs
-logs
+# =============================================================================
+# NeoPad — .gitignore
+# =============================================================================
+
+# ── Credentials & secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+*.cer
+*.csr
+secrets/
+private/
+
+# ── Build output ─────────────────────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+out/
+src-tauri/target/
+
+# ── Node / Bun ───────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+bun.lockb
+package-lock.json
+yarn.lock
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ── Runtime / temp ───────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.temp/
+/tmp/
 
-# Editor directories and files
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+
+# ── Editors & IDEs ───────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.json
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.iml
+.project
+.classpath
+*.sublime-workspace
 
-# Contains credentials — do not commit
+# ── Tauri ────────────────────────────────────────────────────────────────────
+src-tauri/target/
+src-tauri/WixTools/
+*.dmg
+*.deb
+*.AppImage
+*.msi
+*.exe
+
+# ── Scripts with credentials ─────────────────────────────────────────────────
+# run-build-sign-install.sh is safe (reads from .env), but kept here as a
+# historical safeguard in case local copies contain hardcoded values.
 scripts/run-sign-apple.sh
+.neopad-signing-backup/
+.neo-edit-signing-backup/
+
+# ── Signing artefacts ────────────────────────────────────────────────────────
+*.zip
+/NeoEdit-notarize.zip
+/NeoPad-notarize.zip
+
+# ── TypeScript ───────────────────────────────────────────────────────────────
+*.tsbuildinfo
+.tscache/
+
+# ── Vite ─────────────────────────────────────────────────────────────────────
+.vite/
+
+# ── Test output ──────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+Thumbs.db
+ehthumbs.db

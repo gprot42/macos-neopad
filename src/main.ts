@@ -21,6 +21,7 @@ import { getWordCount, getReadingTime } from './markdown/stats';
 import { scheduleLint, clearLint } from './markdown/lint';
 import { registerContentAssist, initImageDrop } from './markdown/content-assist';
 import { registerPasteWithFormatting } from './editor/paste-formatting';
+import { initTerminal, toggleTerminal } from './terminal/terminal-panel';
 import { restoreSession, startSessionAutoSave } from './file/session-recovery';
 import { restoreWindowPosition, startWindowPositionTracking } from './file/window-state';
 import { listen } from '@tauri-apps/api/event';
@@ -142,7 +143,7 @@ const initialSettings = settingsStore.get();
 document.documentElement.setAttribute('data-theme', initialSettings.theme);
 
 // Initialize Monaco editor
-log.info('Neo Edit starting up, version:', typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown');
+log.info('NeoPad starting up, version:', typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown');
 const editorContainer = document.getElementById('editor-container')!;
 const editor = initEditor(editorContainer);
 
@@ -167,6 +168,7 @@ registerTableActions();
 registerContentAssist();
 registerPasteWithFormatting(editor);
 renderFormattingToolbar();
+void initTerminal();
 
 // Restore previous session or create an initial tab
 const restored = restoreSession();
@@ -345,7 +347,7 @@ function showAboutDialog(version: string) {
   overlay.innerHTML = `
     <div class="about-box">
       <div class="about-icon">✦</div>
-      <h2>Neo Edit</h2>
+      <h2>NeoPad</h2>
       <p class="about-version">Version ${version}</p>
       <p class="about-desc">A fast, tabbed text editor for macOS.<br>Built with Tauri, Monaco &amp; TypeScript.</p>
       <button class="about-close" onclick="document.getElementById('about-dialog').remove()">Close</button>
@@ -403,6 +405,9 @@ function showAboutDialog(version: string) {
       toggleOutline();
       updateStatusBar();
       break;
+    case 'toggle_terminal':
+      void toggleTerminal();
+      break;
     case 'insert_table':
       editor.getAction('md.insert-table')?.run();
       break;
@@ -419,8 +424,8 @@ function showAboutDialog(version: string) {
 onTabsChange(() => {
   const tab = getActiveTab();
   const title = tab
-    ? `${tab.title}${tab.isDirty ? ' - Modified' : ''} - Neo Edit v${__APP_VERSION__}`
-    : `Neo Edit v${__APP_VERSION__}`;
+    ? `${tab.title}${tab.isDirty ? ' - Modified' : ''} - NeoPad v${__APP_VERSION__}`
+    : `NeoPad v${__APP_VERSION__}`;
   document.title = title;
 });
 

@@ -16,6 +16,6 @@ if [ -z "$DMG_FILE" ]; then
 fi
 
 hdiutil attach "$DMG_FILE" -nobrowse -quiet
-cp -R "/Volumes/Neo Edit/Neo Edit.app" /Applications/
-hdiutil detach "/Volumes/Neo Edit" -quiet
-echo "Neo Edit installed to /Applications/"
+cp -R "/Volumes/NeoPad/NeoPad.app" /Applications/
+hdiutil detach "/Volumes/NeoPad" -quiet
+echo "NeoPad installed to /Applications/"

@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# build-sign-install.sh — Build, sign, notarize, and install Neo Edit
+# build-sign-install.sh — Build, sign, notarize, and install NeoPad
 #
 # Usage:
 #   ./scripts/build-sign-install.sh \
@@ -43,22 +43,33 @@ fail()    { echo -e "${RED}ERROR:${RESET} $*"; exit 1; }
 divider() { echo -e "\n${CYAN}────────────────────────────────────────────────────────${RESET}\n"; }
 
 # ---------------------------------------------------------------------------
-# Defaults
+# Load .env (project root takes precedence over scripts/)
 # ---------------------------------------------------------------------------
-SIGNING_IDENTITY=""
-APPLE_ID=""
-APPLE_TEAM_ID=""
-APPLE_APP_PASSWORD=""
+for _env in "$(dirname "$SCRIPT_DIR")/.env" "$SCRIPT_DIR/.env"; do
+  if [ -f "$_env" ]; then
+    # shellcheck disable=SC1090
+    set -a; source "$_env"; set +a
+    break
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# Defaults  (env vars pre-fill; CLI args override below)
+# ---------------------------------------------------------------------------
+SIGNING_IDENTITY="${NEOPAD_SIGNING_IDENTITY:-}"
+APPLE_ID="${NEOPAD_APPLE_ID:-}"
+APPLE_TEAM_ID="${NEOPAD_TEAM_ID:-}"
+APPLE_APP_PASSWORD="${NEOPAD_APP_PASSWORD:-}"
 SKIP_BUILD=false
 SKIP_NOTARIZE=false
 SKIP_INSTALL=false
 SKIP_DMG=false
 
-APP_NAME="Neo Edit"
-APP_PATH="src-tauri/target/release/bundle/macos/Neo Edit.app"
+APP_NAME="NeoPad"
+APP_PATH="src-tauri/target/release/bundle/macos/NeoPad.app"
 DMG_DIR="dist"
 ENTITLEMENTS="src-tauri/entitlements.plist"
-INSTALL_PATH="/Applications/Neo Edit.app"
+INSTALL_PATH="/Applications/NeoPad.app"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 # ---------------------------------------------------------------------------
@@ -110,11 +121,11 @@ fi
 # ---------------------------------------------------------------------------
 echo -e "${BOLD}"
 echo "  ╔══════════════════════════════════════════════╗"
-echo "  ║     Neo Edit — Build, Sign & Install         ║"
+echo "  ║     NeoPad — Build, Sign & Install         ║"
 echo "  ╚══════════════════════════════════════════════╝"
 echo -e "${RESET}"
 
-VERSION="$(awk '/^## Current Version/{getline; getline; print; exit}' version.md | tr -d '[:space:]')"
+VERSION="$(awk '/^## Current Version/{getline; print; exit}' version.md | tr -d '[:space:]')"
 echo -e "  Version  : ${BOLD}${VERSION}${RESET}"
 echo -e "  Identity : ${BOLD}${SIGNING_IDENTITY}${RESET}"
 $SKIP_BUILD     && echo -e "  Build    : ${YELLOW}skipped${RESET}" || echo -e "  Build    : ${GREEN}yes${RESET}"
@@ -132,7 +143,7 @@ if $SKIP_BUILD; then
     fail "App bundle not found at: $APP_PATH\n       Cannot skip build — no existing bundle found."
   fi
 else
-  info "Step 1/5 — Building Neo Edit v${VERSION}..."
+  info "Step 1/5 — Building NeoPad v${VERSION}..."
 
   # Sync version from version.md into package.json, Cargo.toml, tauri.conf.json
   sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" package.json
@@ -214,7 +225,7 @@ if $SKIP_NOTARIZE; then
 else
   info "Step 3/5 — Notarizing..."
 
-  ZIP_PATH="/tmp/NeoEdit-notarize.zip"
+  ZIP_PATH="/tmp/NeoPad-notarize.zip"
 
   info "Creating zip for upload..."
   ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
@@ -281,7 +292,7 @@ else
   info "Step 5/5 — Creating DMG..."
 
   mkdir -p "$DMG_DIR"
-  DMG_PATH="$DMG_DIR/NeoEdit-${VERSION}-signed.dmg"
+  DMG_PATH="$DMG_DIR/NeoPad-${VERSION}-signed.dmg"
 
   # Remove old DMG
   rm -f "$DMG_PATH"
@@ -320,7 +331,7 @@ echo -e "${GREEN}${BOLD}All done!${RESET}"
 echo ""
 echo -e "  Version : ${BOLD}v${VERSION}${RESET}"
 ! $SKIP_INSTALL && echo -e "  App     : ${BOLD}${INSTALL_PATH}${RESET}"
-! $SKIP_DMG     && echo -e "  DMG     : ${BOLD}${DMG_DIR}/NeoEdit-${VERSION}-signed.dmg${RESET}"
+! $SKIP_DMG     && echo -e "  DMG     : ${BOLD}${DMG_DIR}/NeoPad-${VERSION}-signed.dmg${RESET}"
 echo ""
-! $SKIP_INSTALL && echo -e "  Launch: ${BOLD}open -a \"Neo Edit\"${RESET}"
+! $SKIP_INSTALL && echo -e "  Launch: ${BOLD}open -a \"NeoPad\"${RESET}"
 echo ""

@@ -2,8 +2,9 @@ import { getTabs, getActiveId, addTab, setActive, onTabsChange } from '../tabs/t
 import { setEditorModel, getEditor } from '../editor/editor-manager';
 import { isNeoFile } from '../crypto/crypto-manager';
 import { lockManager } from '../crypto/lock-manager';
+import { log } from '../utils/logger';
 
-const STORAGE_KEY = 'neo-edit-session';
+const STORAGE_KEY = 'neopad-session';
 const SAVE_INTERVAL_MS = 2000;
 
 interface SavedTab {
@@ -101,13 +102,33 @@ export function restoreSession(): boolean {
 
     if (restoredCount === 0) return false;
 
-    // Activate the previously focused tab
+    // Activate the previously focused tab — but never auto-open a locked tab,
+    // so the user isn't greeted by the "File Locked" overlay on startup.
     const tabs = getTabs();
-    const idx = Math.min(session.activeIdx, tabs.length - 1);
+    let idx = Math.min(session.activeIdx, tabs.length - 1);
+    if (idx >= 0 && tabs[idx] && lockManager.isLocked(tabs[idx].id)) {
+      idx = tabs.findIndex((t) => !lockManager.isLocked(t.id));
+    }
     if (idx >= 0 && tabs[idx]) {
       setActive(tabs[idx].id);
       setEditorModel(tabs[idx].model);
+    } else {
+      // All restored tabs are locked — open a fresh tab so the lock screen
+      // doesn't appear automatically at startup.
+      const fresh = addTab();
+      setActive(fresh.id);
+      setEditorModel(fresh.model);
     }
+
+    log.info(
+      'session-restore: restored',
+      restoredCount,
+      'tabs; activeIdx',
+      session.activeIdx,
+      '-> chosen',
+      idx,
+      idx >= 0 && tabs[idx] ? `(locked=${lockManager.isLocked(tabs[idx].id)})` : '(fresh tab)',
+    );
 
     return true;
   } catch {

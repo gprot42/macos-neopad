@@ -4,7 +4,127 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neo Edit</title>
+    <title>NeoPad</title>
+    <style>
+      :root {
+        --startup-bg: #1a1b26;
+        --startup-sidebar: #16161e;
+        --startup-border: #292e42;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--startup-bg);
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        background: var(--startup-bg);
+      }
+      #tab-bar {
+        height: 36px;
+        min-height: 36px;
+        background: var(--startup-sidebar);
+        border-bottom: 1px solid var(--startup-border);
+      }
+      #editor-wrapper {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        background: var(--startup-bg);
+      }
+      #editor-container {
+        flex: 1;
+        min-width: 0;
+        background: var(--startup-bg);
+      }
+      #status-bar {
+        height: 24px;
+        min-height: 24px;
+        background: var(--startup-sidebar);
+        border-top: 1px solid var(--startup-border);
+      }
+      .hidden,
+      #lock-overlay.hidden,
+      #outline-sidebar.hidden,
+      #markdown-preview.hidden,
+      #md-toolbar.hidden,
+      #terminal-panel.hidden,
+      #terminal-resize-handle.hidden,
+      #settings-overlay.hidden {
+        display: none !important;
+      }
+      #terminal-resize-handle {
+        height: 5px;
+        min-height: 5px;
+        background: var(--startup-sidebar);
+        border-top: 1px solid var(--startup-border);
+        cursor: row-resize;
+      }
+      #terminal-panel {
+        height: 220px;
+        min-height: 80px;
+        flex: none;
+        background: #1a1b26;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      #terminal-toolbar {
+        height: 26px;
+        min-height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 8px;
+        background: var(--startup-sidebar);
+        border-bottom: 1px solid var(--startup-border);
+        font: 11px -apple-system, BlinkMacSystemFont, sans-serif;
+        color: var(--startup-fg, #c0caf5);
+        user-select: none;
+      }
+      #terminal-toolbar .terminal-title {
+        opacity: 0.7;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      #terminal-toolbar .terminal-actions {
+        display: flex;
+        gap: 4px;
+      }
+      #terminal-toolbar button {
+        min-width: 24px;
+        height: 18px;
+        padding: 0 6px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0.75;
+      }
+      #terminal-toolbar button:hover {
+        background: rgba(127, 127, 127, 0.25);
+        opacity: 1;
+      }
+      #terminal-toolbar #term-close {
+        font-size: 15px;
+      }
+      #terminal-xterm {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+    </style>
   </head>
   <body>
     <div id="app">
@@ -25,6 +145,18 @@
           </div>
         </div>
         <div id="markdown-preview" class="hidden"></div>
+      </div>
+      <div id="terminal-resize-handle" class="hidden"></div>
+      <div id="terminal-panel" class="hidden">
+        <div id="terminal-toolbar">
+          <span class="terminal-title">Terminal</span>
+          <div class="terminal-actions">
+            <button id="term-font-dec" type="button" title="Decrease font size">A&minus;</button>
+            <button id="term-font-inc" type="button" title="Increase font size">A&plus;</button>
+            <button id="term-close" type="button" title="Close terminal">&times;</button>
+          </div>
+        </div>
+        <div id="terminal-xterm"></div>
       </div>
       <div id="status-bar"></div>
     </div>

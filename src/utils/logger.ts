@@ -1,8 +1,8 @@
 /**
  * File-based logger for production builds.
- * Logs are written to ~/Library/Logs/Neo Edit/neo-edit.log
- * View with: tail -f ~/Library/Logs/Neo\ Edit/neo-edit.log
- * Or open Console.app and search for "Neo Edit"
+ * Logs are written to ~/Library/Logs/NeoPad/neopad.log
+ * View with: tail -f ~/Library/Logs/NeoPad/neopad.log
+ * Or open Console.app and search for "NeoPad"
  */
 import { invoke } from '@tauri-apps/api/core';
 

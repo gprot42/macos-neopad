@@ -1,4 +1,5 @@
 import { settingsStore, type Settings } from './settings-store';
+import { disableTerminalFeature } from '../terminal/terminal-panel';
 
 let isOpen = false;
 
@@ -48,6 +49,13 @@ export function openSettings(): void {
       <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
         <input type="checkbox" id="setting-restore-window" ${settings.restoreWindowPosition ? 'checked' : ''} style="width: auto; margin: 0;" />
         Restore window position and size on startup
+      </label>
+    </div>
+
+    <div class="settings-section">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="setting-terminal-enabled" ${settings.terminalEnabled ? 'checked' : ''} style="width: auto; margin: 0;" />
+        Enable integrated terminal (View → Toggle Terminal, Ctrl+\`)
       </label>
     </div>
 
@@ -119,6 +127,13 @@ export function openSettings(): void {
   // Restore window position
   panel.querySelector('#setting-restore-window')!.addEventListener('change', (e) => {
     settingsStore.update({ restoreWindowPosition: (e.target as HTMLInputElement).checked });
+  });
+
+  // Integrated terminal enable/disable
+  panel.querySelector('#setting-terminal-enabled')!.addEventListener('change', (e) => {
+    const enabled = (e.target as HTMLInputElement).checked;
+    settingsStore.update({ terminalEnabled: enabled });
+    if (!enabled) void disableTerminalFeature();
   });
 
   // Auto-lock enabled toggle

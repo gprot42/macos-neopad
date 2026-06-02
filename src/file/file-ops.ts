@@ -575,7 +575,7 @@ export async function openFileByPath(filePath: string): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg !== 'Cancelled') {
       log.error('openFileByPath FAILED for:', filePath, msg);
-      console.error('[Neo Edit] Failed to open file:', filePath, err);
+      console.error('[NeoPad] Failed to open file:', filePath, err);
     }
   }
 

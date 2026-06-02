@@ -3,7 +3,7 @@ import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi';
 import { settingsStore } from '../settings/settings-store';
 import { log } from '../utils/logger';
 
-const STORAGE_KEY = 'neo-edit-window-position';
+const STORAGE_KEY = 'neopad-window-position';
 
 interface WindowState {
   x: number;

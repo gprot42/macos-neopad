@@ -1,6 +1,6 @@
 import { log } from '../utils/logger';
 
-const STORAGE_KEY = 'neo-edit-recently-closed';
+const STORAGE_KEY = 'neopad-recently-closed';
 const MAX_ENTRIES = 20;
 
 function load(): string[] {

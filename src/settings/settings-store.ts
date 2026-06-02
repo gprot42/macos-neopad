@@ -8,9 +8,17 @@ export interface Settings {
   autoLockEnabled: boolean;
   /** Inactivity timeout in minutes before encrypted files are locked */
   autoLockTimeoutMins: number;
+  /** Whether the integrated terminal feature is available */
+  terminalEnabled: boolean;
+  /** Whether the terminal panel is currently open (restored on launch) */
+  terminalOpen: boolean;
+  /** Persisted height of the terminal panel in pixels */
+  terminalHeight: number;
+  /** Persisted terminal font size in pixels */
+  terminalFontSize: number;
 }
 
-const STORAGE_KEY = 'neo-edit-settings';
+const STORAGE_KEY = 'neopad-settings';
 
 const defaults: Settings = {
   fontSize: 14,
@@ -20,6 +28,10 @@ const defaults: Settings = {
   restoreWindowPosition: true,
   autoLockEnabled: false,
   autoLockTimeoutMins: 60,
+  terminalEnabled: true,
+  terminalOpen: false,
+  terminalHeight: 220,
+  terminalFontSize: 13,
 };
 
 type SettingsListener = (settings: Settings) => void;

@@ -64,7 +64,7 @@ pause() {
 # Move an existing file to a redundant folder instead of overwriting/deleting
 safe_move() {
   local src="$1"
-  local redundant_dir="$HOME/.neo-edit-signing-backup"
+  local redundant_dir="$HOME/.neopad-signing-backup"
   mkdir -p "$redundant_dir"
   local timestamp
   timestamp="$(date +%Y%m%d_%H%M%S)"
@@ -79,7 +79,7 @@ safe_move() {
 clear
 echo -e "${BOLD}"
 echo "  ╔══════════════════════════════════════════════╗"
-echo "  ║        Neo Edit — Code Signing Setup         ║"
+echo "  ║        NeoPad — Code Signing Setup         ║"
 echo "  ╚══════════════════════════════════════════════╝"
 echo -e "${RESET}"
 echo "  This script guides you through setting up a Developer ID certificate."
@@ -111,7 +111,7 @@ if [ -n "$EXISTING" ]; then
     IDENTITY=$(echo "$EXISTING" | head -1 | sed 's/.*"\(.*\)"/\1/')
     success "Using: $IDENTITY"
     divider
-    echo -e "${GREEN}${BOLD}All done — your machine is ready to sign Neo Edit!${RESET}"
+    echo -e "${GREEN}${BOLD}All done — your machine is ready to sign NeoPad!${RESET}"
     echo ""
     echo "  Run the sign script:"
     echo ""
@@ -362,7 +362,7 @@ echo ""
 echo "  Your signing identity:"
 echo -e "  ${BOLD}$IDENTITY${RESET}"
 echo ""
-echo "  Sign Neo Edit:"
+echo "  Sign NeoPad:"
 echo ""
 echo "    ./scripts/sign.sh \\"
 echo "      --identity \"$IDENTITY\""
@@ -388,4 +388,4 @@ fi
 echo ""
 warn "Keep your private key safe: $KEY_PATH"
 warn "Back it up securely — if lost, you must revoke and recreate the certificate."
-warn "Backup folder for old files: $HOME/.neo-edit-signing-backup"
+warn "Backup folder for old files: $HOME/.neopad-signing-backup"

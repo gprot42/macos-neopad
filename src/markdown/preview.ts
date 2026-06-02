@@ -76,12 +76,127 @@ async function renderMermaidBlocks(doc: Document, seq: number): Promise<void> {
       if (seq !== renderSeq) return; // doc was rewritten; abort
       block.innerHTML = svg;
       block.classList.add('mermaid-done');
+      attachZoomPan(block);
     } catch (e) {
       if (seq !== renderSeq) return;
       block.innerHTML = `<pre class="mermaid-error">Mermaid error: ${escapeHtml(String(e))}</pre>`;
       block.classList.add('mermaid-done');
     }
   }
+}
+
+// Wheel = zoom (toward cursor), drag = pan, double-click = reset.
+function attachZoomPan(block: HTMLElement): void {
+  const svg = block.querySelector('svg');
+  if (!svg) return;
+
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+
+  svg.style.transformOrigin = '0 0';
+  svg.style.cursor = 'grab';
+  block.style.userSelect = 'none';
+
+  const apply = () => {
+    svg.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+  };
+
+  // Zoom toward the center of the block by a given factor.
+  const zoomBy = (factor: number) => {
+    const rect = block.getBoundingClientRect();
+    const ox = rect.width / 2;
+    const oy = rect.height / 2;
+    const prev = scale;
+    scale = Math.min(6, Math.max(0.3, scale * factor));
+    const ratio = scale / prev;
+    tx = ox - (ox - tx) * ratio;
+    ty = oy - (oy - ty) * ratio;
+    apply();
+  };
+
+  // +/- zoom buttons (top-right corner overlay). Use the block's own document
+  // so the elements are created inside the preview iframe.
+  const od = block.ownerDocument;
+  const controls = od.createElement('div');
+  controls.className = 'mermaid-zoom-controls';
+  const btnOut = od.createElement('button');
+  btnOut.type = 'button';
+  btnOut.className = 'mermaid-zoom-btn';
+  btnOut.textContent = '−';
+  btnOut.title = 'Zoom out';
+  const btnIn = od.createElement('button');
+  btnIn.type = 'button';
+  btnIn.className = 'mermaid-zoom-btn';
+  btnIn.textContent = '+';
+  btnIn.title = 'Zoom in';
+  const stop = (e: Event) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  btnIn.addEventListener('mousedown', stop);
+  btnOut.addEventListener('mousedown', stop);
+  btnIn.addEventListener('dblclick', stop);
+  btnOut.addEventListener('dblclick', stop);
+  btnIn.addEventListener('click', (e) => {
+    stop(e);
+    zoomBy(1.2);
+  });
+  btnOut.addEventListener('click', (e) => {
+    stop(e);
+    zoomBy(1 / 1.2);
+  });
+  controls.appendChild(btnOut);
+  controls.appendChild(btnIn);
+  block.appendChild(controls);
+
+  block.addEventListener(
+    'wheel',
+    (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = block.getBoundingClientRect();
+      const ox = e.clientX - rect.left;
+      const oy = e.clientY - rect.top;
+      const prev = scale;
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      scale = Math.min(6, Math.max(0.3, scale * factor));
+      const ratio = scale / prev;
+      // keep the point under the cursor fixed while zooming
+      tx = ox - (ox - tx) * ratio;
+      ty = oy - (oy - ty) * ratio;
+      apply();
+    },
+    { passive: false },
+  );
+
+  block.addEventListener('mousedown', (e: MouseEvent) => {
+    dragging = true;
+    startX = e.clientX - tx;
+    startY = e.clientY - ty;
+    svg.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  block.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!dragging) return;
+    tx = e.clientX - startX;
+    ty = e.clientY - startY;
+    apply();
+  });
+  const endDrag = () => {
+    dragging = false;
+    svg.style.cursor = 'grab';
+  };
+  block.addEventListener('mouseup', endDrag);
+  block.addEventListener('mouseleave', endDrag);
+  block.addEventListener('dblclick', () => {
+    scale = 1;
+    tx = 0;
+    ty = 0;
+    apply();
+  });
 }
 
 const previewStyles: Record<string, string> = {
@@ -163,8 +278,13 @@ function getPreviewHTML(markdown: string): string {
   p { margin: 0 0 16px; }
   ul, ol { padding-left: 2em; margin: 0 0 16px; }
   li { margin: 4px 0; }
-  .mermaid-block { margin: 16px 0; text-align: center; overflow-x: auto; }
-  .mermaid-block svg { max-width: 100%; height: auto; }
+  .mermaid-block { margin: 16px 0; text-align: center; overflow: hidden; position: relative; border: 1px solid rgba(127,127,127,0.18); border-radius: 6px; padding: 8px; }
+  .mermaid-block svg { max-width: 100%; height: auto; will-change: transform; }
+  .mermaid-block.mermaid-done::after { content: 'scroll to zoom · drag to pan · double-click to reset'; position: absolute; bottom: 4px; right: 8px; font-size: 10px; opacity: 0.35; pointer-events: none; }
+  .mermaid-zoom-controls { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; z-index: 2; }
+  .mermaid-zoom-btn { width: 24px; height: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; border: 1px solid rgba(127,127,127,0.35); border-radius: 4px; background: rgba(127,127,127,0.12); color: inherit; cursor: pointer; opacity: 0.4; transition: opacity 0.15s, background 0.15s; padding: 0; }
+  .mermaid-block:hover .mermaid-zoom-btn { opacity: 0.85; }
+  .mermaid-zoom-btn:hover { opacity: 1; background: rgba(127,127,127,0.28); }
   .mermaid-error { color: #f7768e; text-align: left; white-space: pre-wrap; }
   ${css}
 </style></head><body>${html}</body></html>`;

@@ -5,6 +5,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_fs::FsExt;
 
+mod pty;
+
 struct PendingFiles(Mutex<Vec<String>>);
 
 /// Register the app bundle with macOS Launch Services so file type
@@ -44,9 +46,9 @@ use base64::Engine;
 fn append_log(lines: String) {
     let log_dir = dirs::home_dir()
         .unwrap_or_default()
-        .join("Library/Logs/Neo Edit");
+        .join("Library/Logs/NeoPad");
     let _ = std::fs::create_dir_all(&log_dir);
-    let log_path = log_dir.join("neo-edit.log");
+    let log_path = log_dir.join("neopad.log");
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true).append(true).open(&log_path)
@@ -76,11 +78,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(PendingFiles(Mutex::new(Vec::new())))
+        .manage(pty::PtyState::default())
         .invoke_handler(tauri::generate_handler![
             get_pending_files,
             read_file_bytes,
             read_file_text,
-            append_log
+            append_log,
+            pty::pty_spawn,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill
         ])
         .setup(|app| {
             // Register file type handlers with macOS on every launch
@@ -90,7 +97,7 @@ pub fn run() {
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 let urls = event.urls();
-                eprintln!("[Neo Edit] on_open_url fired: {:?}", urls);
+                eprintln!("[NeoPad] on_open_url fired: {:?}", urls);
                 let paths: Vec<String> = urls
                     .iter()
                     .filter_map(|url| {
@@ -98,10 +105,10 @@ pub fn run() {
                             let p = url.to_file_path()
                                 .ok()
                                 .map(|p| p.to_string_lossy().into_owned());
-                            eprintln!("[Neo Edit] resolved path: {:?}", p);
+                            eprintln!("[NeoPad] resolved path: {:?}", p);
                             p
                         } else {
-                            eprintln!("[Neo Edit] skipping non-file URL: {}", url);
+                            eprintln!("[NeoPad] skipping non-file URL: {}", url);
                             None
                         }
                     })
@@ -115,12 +122,12 @@ pub fn run() {
                 let fs_scope = handle.fs_scope();
                 for path in &paths {
                     let _ = fs_scope.allow_file(path);
-                    eprintln!("[Neo Edit] added to FS scope: {}", path);
+                    eprintln!("[NeoPad] added to FS scope: {}", path);
                 }
 
                 // ALWAYS store as pending first (so get_pending_files can retrieve them)
                 if let Some(state) = handle.try_state::<PendingFiles>() {
-                    eprintln!("[Neo Edit] storing {} file(s) as pending", paths.len());
+                    eprintln!("[NeoPad] storing {} file(s) as pending", paths.len());
                     state.0.lock().unwrap().extend(paths.clone());
                 }
 
@@ -131,7 +138,7 @@ pub fn run() {
                     std::thread::spawn(move || {
                         // Wait for the webview to be ready
                         std::thread::sleep(std::time::Duration::from_millis(500));
-                        eprintln!("[Neo Edit] emitting check-pending-files signal");
+                        eprintln!("[NeoPad] emitting check-pending-files signal");
                         if let Some(w) = handle_clone.get_webview_window("main") {
                             let _ = w.emit("check-pending-files", ());
                         }
@@ -186,9 +193,9 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+H")
                 .build(handle)?;
 
-            let about = MenuItemBuilder::with_id("about", "About Neo Edit").build(handle)?;
+            let about = MenuItemBuilder::with_id("about", "About NeoPad").build(handle)?;
 
-            let quit = MenuItemBuilder::with_id("quit", "Quit Neo Edit")
+            let quit = MenuItemBuilder::with_id("quit", "Quit NeoPad")
                 .accelerator("CmdOrCtrl+Q")
                 .build(handle)?;
 
@@ -197,6 +204,9 @@ pub fn run() {
                 .build(handle)?;
             let toggle_outline = MenuItemBuilder::with_id("toggle_outline", "Toggle Outline")
                 .accelerator("CmdOrCtrl+Shift+O")
+                .build(handle)?;
+            let toggle_terminal = MenuItemBuilder::with_id("toggle_terminal", "Toggle Terminal")
+                .accelerator("Ctrl+`")
                 .build(handle)?;
             let insert_table = MenuItemBuilder::with_id("insert_table", "Insert Table...")
                 .accelerator("CmdOrCtrl+Alt+T")
@@ -207,8 +217,8 @@ pub fn run() {
             let export_pdf =
                 MenuItemBuilder::with_id("export_pdf", "Export to PDF...").build(handle)?;
 
-            // === App menu (Neo Edit) — file operations + settings + quit ===
-            let app_menu = SubmenuBuilder::new(handle, "Neo Edit")
+            // === App menu (NeoPad) — file operations + settings + quit ===
+            let app_menu = SubmenuBuilder::new(handle, "NeoPad")
                 .item(&new_tab)
                 .separator()
                 .item(&open)
@@ -245,6 +255,8 @@ pub fn run() {
             let view_menu = SubmenuBuilder::new(handle, "View")
                 .item(&toggle_preview)
                 .item(&toggle_outline)
+                .separator()
+                .item(&toggle_terminal)
                 .build()?;
 
             // === Markdown menu: markdown-specific insert & export ===
@@ -302,7 +314,7 @@ pub fn run() {
             match event {
                 // Handle files opened via macOS "Open With" on cold start
                 tauri::RunEvent::Opened { urls } => {
-                    eprintln!("[Neo Edit] RunEvent::Opened fired: {:?}", urls);
+                    eprintln!("[NeoPad] RunEvent::Opened fired: {:?}", urls);
                     let paths: Vec<String> = urls
                         .iter()
                         .filter_map(|url| {
@@ -324,12 +336,12 @@ pub fn run() {
                     let fs_scope = app_handle.fs_scope();
                     for path in &paths {
                         let _ = fs_scope.allow_file(path);
-                        eprintln!("[Neo Edit] Opened: added to FS scope: {}", path);
+                        eprintln!("[NeoPad] Opened: added to FS scope: {}", path);
                     }
 
                     // Store as pending
                     if let Some(state) = app_handle.try_state::<PendingFiles>() {
-                        eprintln!("[Neo Edit] Opened: storing {} file(s) as pending", paths.len());
+                        eprintln!("[NeoPad] Opened: storing {} file(s) as pending", paths.len());
                         state.0.lock().unwrap().extend(paths);
                     }
 
@@ -353,7 +365,7 @@ pub fn run() {
                     // Tauri may create other internal/short-lived windows whose
                     // CloseRequested should not terminate the application.
                     if label == "main" {
-                        eprintln!("[Neo Edit] main window CloseRequested — exiting");
+                        eprintln!("[NeoPad] main window CloseRequested — exiting");
                         std::process::exit(0);
                     }
                 }
