@@ -25,6 +25,7 @@ interface SavedSession {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const watchedModels = new WeakSet<import('monaco-editor').editor.ITextModel>();
 
 function serializeSession(): SavedSession {
   const tabs = getTabs();
@@ -140,7 +141,20 @@ export function restoreSession(): boolean {
  * Start auto-saving session state on every change.
  */
 export function startSessionAutoSave(): void {
-  onTabsChange(() => scheduleSave());
+  const watchAllTabs = () => {
+    for (const tab of getTabs()) {
+      if (watchedModels.has(tab.model)) continue;
+      watchedModels.add(tab.model);
+      tab.model.onDidChangeContent(() => scheduleSave());
+    }
+  };
+
+  watchAllTabs();
+
+  onTabsChange(() => {
+    watchAllTabs();
+    scheduleSave();
+  });
 
   // Also save on content edits (debounced)
   getEditor()?.onDidChangeModelContent(() => scheduleSave());

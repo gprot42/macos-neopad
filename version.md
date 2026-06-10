@@ -1,9 +1,12 @@
 # NeoPad Version
 
 ## Current Version
-0.0.1
+0.0.2
 
 ## Changelog
+
+#### 0.0.2 (2026-06-10)
+- Fixed the horizontal-scroll stuck bug — the editor's scrollLeft gets pushed past 0 and, with word wrap on, there's no horizontal scrollbar to drag back
 
 ### 0.0.1 (2026-05-31)
 

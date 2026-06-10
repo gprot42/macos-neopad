@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import { detectLanguage } from '../editor/languages';
+import { applyIndentationToModel } from '../editor/editor-manager';
 
 export interface Tab {
   id: string;
@@ -49,6 +50,7 @@ export function addTab(
   const title = filePath ? filePath.split('/').pop()! : `Untitled-${++untitledCounter}`;
   const uri = monaco.Uri.parse(`file:///${id}`);
   const model = monaco.editor.createModel(content, lang, uri);
+  applyIndentationToModel(model);
 
   const tab: Tab = { id, title, filePath, language: lang, isDirty: false, model, viewState: null, highlights: [] };
   tabs.push(tab);

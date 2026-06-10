@@ -208,6 +208,19 @@ pub fn run() {
             let toggle_terminal = MenuItemBuilder::with_id("toggle_terminal", "Toggle Terminal")
                 .accelerator("Ctrl+`")
                 .build(handle)?;
+            let select_language =
+                MenuItemBuilder::with_id("select_language", "Language...").build(handle)?;
+            let wrap_70 = MenuItemBuilder::with_id("wrap_70", "70 Columns").build(handle)?;
+            let wrap_72 = MenuItemBuilder::with_id("wrap_72", "72 Columns").build(handle)?;
+            let wrap_80 = MenuItemBuilder::with_id("wrap_80", "80 Columns").build(handle)?;
+            let wrap_off = MenuItemBuilder::with_id("wrap_off", "Off").build(handle)?;
+            let wrap_menu = SubmenuBuilder::new(handle, "Word Wrap")
+                .item(&wrap_70)
+                .item(&wrap_72)
+                .item(&wrap_80)
+                .separator()
+                .item(&wrap_off)
+                .build()?;
             let insert_table = MenuItemBuilder::with_id("insert_table", "Insert Table...")
                 .accelerator("CmdOrCtrl+Alt+T")
                 .build(handle)?;
@@ -257,6 +270,9 @@ pub fn run() {
                 .item(&toggle_outline)
                 .separator()
                 .item(&toggle_terminal)
+                .separator()
+                .item(&select_language)
+                .item(&wrap_menu)
                 .build()?;
 
             // === Markdown menu: markdown-specific insert & export ===

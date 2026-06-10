@@ -1,7 +1,7 @@
 import './styles/themes.css';
 import './styles/main.css';
 import './styles/markdown.css';
-import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor, initTabLookup } from './editor/editor-manager';
+import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor, initTabLookup, setEditorIndentation } from './editor/editor-manager';
 import { initHighlightToolbar, setHighlightToolbarTab } from './editor/highlight-toolbar';
 import { restoreHighlights, clearDecorations } from './editor/text-highlight';
 import { renderTabBar } from './tabs/tab-bar';
@@ -208,6 +208,7 @@ settingsStore.onChange((settings) => {
     wordWrap: settings.wordWrap as 'off' | 'on' | 'wordWrapColumn' | 'bounded',
     wordWrapColumn: settings.wordWrapColumn,
   });
+  setEditorIndentation(settings.tabSize, settings.insertSpaces);
   applyAutoLockSettings(settings.autoLockEnabled, settings.autoLockTimeoutMins);
 });
 
@@ -310,7 +311,7 @@ function toggleLanguageDropdown(): void {
   dropdown = document.createElement('div');
   dropdown.className = 'lang-dropdown';
 
-  for (const lang of availableLanguages) {
+  for (const lang of [...availableLanguages].sort((a, b) => a.localeCompare(b))) {
     const item = document.createElement('div');
     item.className = `lang-item${tab.language === lang ? ' active' : ''}`;
     item.textContent = lang;
@@ -407,6 +408,21 @@ function showAboutDialog(version: string) {
       break;
     case 'toggle_terminal':
       void toggleTerminal();
+      break;
+    case 'select_language':
+      toggleLanguageDropdown();
+      break;
+    case 'wrap_70':
+      settingsStore.update({ wordWrapColumn: 70, wordWrap: 'wordWrapColumn' });
+      break;
+    case 'wrap_72':
+      settingsStore.update({ wordWrapColumn: 72, wordWrap: 'wordWrapColumn' });
+      break;
+    case 'wrap_80':
+      settingsStore.update({ wordWrapColumn: 80, wordWrap: 'wordWrapColumn' });
+      break;
+    case 'wrap_off':
+      settingsStore.update({ wordWrap: 'off' });
       break;
     case 'insert_table':
       editor.getAction('md.insert-table')?.run();

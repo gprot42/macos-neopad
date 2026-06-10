@@ -3,6 +3,10 @@ export interface Settings {
   theme: 'light' | 'dark' | 'tokyo-night' | 'mariana';
   wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded';
   wordWrapColumn: number;
+  /** Number of spaces (or columns) per indentation level */
+  tabSize: number;
+  /** Insert spaces instead of a tab character when indenting */
+  insertSpaces: boolean;
   restoreWindowPosition: boolean;
   /** Whether encrypted (.neo) files auto-lock after a period of inactivity */
   autoLockEnabled: boolean;
@@ -25,6 +29,8 @@ const defaults: Settings = {
   theme: 'tokyo-night',
   wordWrap: 'wordWrapColumn',
   wordWrapColumn: 80,
+  tabSize: 2,
+  insertSpaces: true,
   restoreWindowPosition: true,
   autoLockEnabled: false,
   autoLockTimeoutMins: 60,

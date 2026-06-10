@@ -52,8 +52,9 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     wordWrapColumn: settings.wordWrapColumn,
     scrollBeyondLastLine: false,
     automaticLayout: true,
-    tabSize: 2,
-    insertSpaces: true,
+    tabSize: settings.tabSize,
+    insertSpaces: settings.insertSpaces,
+    detectIndentation: false,
     renderWhitespace: 'selection',
     smoothScrolling: true,
     cursorSmoothCaretAnimation: 'on',
@@ -164,6 +165,31 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     ed.revealLine(lastLine);
   });
 
+  // ── Stuck horizontal-scroll guard ──────────────────────────────────────────
+  // With word wrap on, content never exceeds the viewport, yet a stale
+  // scrollLeft (restored view state, window resize, wrap-setting change) can
+  // leave the text clipped on the left with no horizontal scrollbar to
+  // recover. Clamp scrollLeft into the valid range on every scroll/layout
+  // change so the editor heals itself instead of requiring a tab switch.
+  let clampScheduled = false;
+  const clampScrollLeft = () => {
+    if (clampScheduled || !editor) return;
+    clampScheduled = true;
+    requestAnimationFrame(() => {
+      clampScheduled = false;
+      const ed = editor;
+      if (!ed) return;
+      const layout = ed.getLayoutInfo();
+      const maxLeft = Math.max(0, ed.getScrollWidth() - layout.contentWidth);
+      const left = ed.getScrollLeft();
+      if (left > maxLeft || left < 0) {
+        ed.setScrollLeft(Math.min(Math.max(left, 0), maxLeft));
+      }
+    });
+  };
+  editor.onDidScrollChange(clampScrollLeft);
+  editor.onDidLayoutChange(clampScrollLeft);
+
   return editor;
 }
 
@@ -185,6 +211,19 @@ export function updateEditorOptions(options: monaco.editor.IEditorOptions): void
     },
     renderControlCharacters: false,
   });
+}
+
+/** Apply indentation (tab size + spaces/tabs) to all open models. */
+export function setEditorIndentation(tabSize: number, insertSpaces: boolean): void {
+  for (const model of monaco.editor.getModels()) {
+    model.updateOptions({ tabSize, insertSpaces });
+  }
+}
+
+/** Apply the current indentation settings to a single model. */
+export function applyIndentationToModel(model: monaco.editor.ITextModel): void {
+  const s = settingsStore.get();
+  model.updateOptions({ tabSize: s.tabSize, insertSpaces: s.insertSpaces });
 }
 
 export function setEditorTheme(theme: string): void {

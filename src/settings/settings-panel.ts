@@ -38,11 +38,24 @@ export function openSettings(): void {
       <label>Word Wrap Column</label>
       <div class="wrap-options">
         <button class="wrap-btn ${settings.wordWrapColumn === 70 ? 'active' : ''}" data-col="70">70</button>
-        <button class="wrap-btn ${settings.wordWrapColumn === 75 ? 'active' : ''}" data-col="75">75</button>
+        <button class="wrap-btn ${settings.wordWrapColumn === 72 ? 'active' : ''}" data-col="72">72</button>
         <button class="wrap-btn ${settings.wordWrapColumn === 80 ? 'active' : ''}" data-col="80">80</button>
-        <button class="wrap-btn ${![70, 75, 80].includes(settings.wordWrapColumn) ? 'active' : ''}" data-col="custom">Custom</button>
-        <input type="number" class="custom-wrap-input" id="setting-custom-wrap" min="20" max="200" value="${settings.wordWrapColumn}" style="display: ${![70, 75, 80].includes(settings.wordWrapColumn) ? 'block' : 'none'}" />
+        <button class="wrap-btn ${![70, 72, 80].includes(settings.wordWrapColumn) ? 'active' : ''}" data-col="custom">Custom</button>
+        <input type="number" class="custom-wrap-input" id="setting-custom-wrap" min="20" max="200" value="${settings.wordWrapColumn}" style="display: ${![70, 72, 80].includes(settings.wordWrapColumn) ? 'block' : 'none'}" />
       </div>
+    </div>
+
+    <div class="settings-section">
+      <label>Indentation</label>
+      <div class="wrap-options">
+        <button class="wrap-btn indent-btn ${settings.tabSize === 2 ? 'active' : ''}" data-tab="2">2</button>
+        <button class="wrap-btn indent-btn ${settings.tabSize === 4 ? 'active' : ''}" data-tab="4">4</button>
+        <button class="wrap-btn indent-btn ${settings.tabSize === 8 ? 'active' : ''}" data-tab="8">8</button>
+      </div>
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 8px;">
+        <input type="checkbox" id="setting-insert-spaces" ${settings.insertSpaces ? 'checked' : ''} style="width: auto; margin: 0;" />
+        Insert spaces instead of tabs
+      </label>
     </div>
 
     <div class="settings-section">
@@ -122,6 +135,20 @@ export function openSettings(): void {
     if (val >= 20 && val <= 200) {
       settingsStore.update({ wordWrapColumn: val, wordWrap: 'wordWrapColumn' });
     }
+  });
+
+  // Indentation (tab size)
+  const indentBtns = panel.querySelectorAll('.indent-btn[data-tab]');
+  indentBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      indentBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      settingsStore.update({ tabSize: parseInt(btn.getAttribute('data-tab')!, 10) });
+    });
+  });
+
+  panel.querySelector('#setting-insert-spaces')!.addEventListener('change', (e) => {
+    settingsStore.update({ insertSpaces: (e.target as HTMLInputElement).checked });
   });
 
   // Restore window position
