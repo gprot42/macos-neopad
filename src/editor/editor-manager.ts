@@ -166,11 +166,14 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
   });
 
   // ── Stuck horizontal-scroll guard ──────────────────────────────────────────
-  // With word wrap on, content never exceeds the viewport, yet a stale
-  // scrollLeft (restored view state, window resize, wrap-setting change) can
-  // leave the text clipped on the left with no horizontal scrollbar to
-  // recover. Clamp scrollLeft into the valid range on every scroll/layout
-  // change so the editor heals itself instead of requiring a tab switch.
+  // With word wrap on, content should never need horizontal scroll, yet a
+  // stale scrollLeft (restored view state, window resize, wrap-setting
+  // change, async re-wrap) can leave the text clipped on the left with no
+  // way to scroll back. When wrap is enabled, force scrollLeft back to 0
+  // unconditionally on every scroll/layout change (belt-and-suspenders —
+  // don't trust getScrollWidth()/contentWidth, which can be momentarily
+  // stale during async re-wrap). When wrap is off, fall back to clamping
+  // into the valid range so genuine long-line scrolling still works.
   let clampScheduled = false;
   const clampScrollLeft = () => {
     if (clampScheduled || !editor) return;
@@ -179,9 +182,14 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
       clampScheduled = false;
       const ed = editor;
       if (!ed) return;
+      const left = ed.getScrollLeft();
+      const wrapEnabled = settingsStore.get().wordWrap !== 'off';
+      if (wrapEnabled) {
+        if (left !== 0) ed.setScrollLeft(0);
+        return;
+      }
       const layout = ed.getLayoutInfo();
       const maxLeft = Math.max(0, ed.getScrollWidth() - layout.contentWidth);
-      const left = ed.getScrollLeft();
       if (left > maxLeft || left < 0) {
         ed.setScrollLeft(Math.min(Math.max(left, 0), maxLeft));
       }
@@ -211,6 +219,9 @@ export function updateEditorOptions(options: monaco.editor.IEditorOptions): void
     },
     renderControlCharacters: false,
   });
+  if (editor && options.wordWrap && options.wordWrap !== 'off' && editor.getScrollLeft() !== 0) {
+    editor.setScrollLeft(0);
+  }
 }
 
 /** Apply indentation (tab size + spaces/tabs) to all open models. */
@@ -254,6 +265,9 @@ export function setEditorModel(model: monaco.editor.ITextModel | null): void {
     } else {
       editor.setPosition({ lineNumber: 1, column: 1 });
       editor.revealLine(1);
+    }
+    if (settingsStore.get().wordWrap !== 'off' && editor.getScrollLeft() !== 0) {
+      editor.setScrollLeft(0);
     }
     if (incoming) restoreHighlights(editor, incoming);
     editor.focus();
