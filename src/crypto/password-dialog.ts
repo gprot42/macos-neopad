@@ -1,5 +1,5 @@
 /**
- * Password prompt dialogs for Neo Edit encrypted files.
+ * Password prompt dialogs for NeoPad encrypted files.
  *
  * Provides two modal dialogs:
  *   - promptPassword: single password entry (for unlocking/opening)

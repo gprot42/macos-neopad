@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-DMG_GLOB="dist/NeoEdit-*-signed.dmg"
+DMG_GLOB="dist/NeoPad-*-signed.dmg"
 DMG_FILE="$(ls $DMG_GLOB 2>/dev/null | head -1 || true)"
 
 if [ -z "$DMG_FILE" ]; then

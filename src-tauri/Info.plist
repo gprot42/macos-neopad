@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Neo Edit</string>
+	<string>NeoPad</string>
 	<key>CFBundleDisplayName</key>
-	<string>Neo Edit</string>
+	<string>NeoPad</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -98,6 +98,26 @@
 				<string>net.daringfireball.markdown</string>
 			</array>
 		</dict>
+		<!-- JSON — must be its own type. public.json does not conform to
+		     public.source-code, so listing .json only under Source Code
+		     never matches Finder's Open With menu. -->
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>JSON Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>json</string>
+				<string>jsonc</string>
+			</array>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.json</string>
+			</array>
+		</dict>
 		<!-- Word Documents -->
 		<dict>
 			<key>CFBundleTypeName</key>
@@ -131,7 +151,6 @@
 				<string>jsx</string>
 				<string>ts</string>
 				<string>tsx</string>
-				<string>json</string>
 				<string>py</string>
 				<string>rs</string>
 				<string>go</string>

@@ -1,5 +1,5 @@
 /**
- * Encryption utilities for Neo Edit encrypted files (.neo)
+ * Encryption utilities for NeoPad encrypted files (.neo)
  *
  * Uses PBKDF2 for key derivation and AES-256-GCM for symmetric encryption,
  * all via the browser-native Web Crypto API (SubtleCrypto).
@@ -135,7 +135,7 @@ export async function decryptText(encryptedJson: string, password: string): Prom
 }
 
 /**
- * Returns true if the string looks like a valid Neo Edit encrypted payload.
+ * Returns true if the string looks like a valid NeoPad encrypted payload.
  * Used to detect .neo files that are actually encrypted vs plain text.
  */
 export function isEncryptedPayload(str: string): boolean {

@@ -76,7 +76,14 @@
         "description": "Comma/Tab separated values"
       },
       {
-        "ext": ["js", "jsx", "ts", "tsx", "json", "py", "rs", "go", "java", "c", "cpp", "h", "hpp", "cs", "php", "rb", "swift", "sql", "sh", "bash", "zsh"],
+        "ext": ["json", "jsonc"],
+        "name": "JSON Document",
+        "role": "Editor",
+        "mimeType": "application/json",
+        "description": "JSON document"
+      },
+      {
+        "ext": ["js", "jsx", "ts", "tsx", "py", "rs", "go", "java", "c", "cpp", "h", "hpp", "cs", "php", "rb", "swift", "sql", "sh", "bash", "zsh"],
         "name": "Source Code",
         "role": "Editor",
         "description": "Source code file"
