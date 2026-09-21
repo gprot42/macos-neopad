@@ -1,9 +1,13 @@
 # NeoPad Version
 
 ## Current Version
-0.0.2
+0.0.3
 
 ## Changelog
+
+#### 0.0.3 (2026-09-21)
+- Fixed the editor shifting sideways (gutter gone, first characters clipped, no way to scroll back). Root cause: with wrapping on, Monaco sizes its hidden input textarea to the wrap width; in a window narrower than that it overhangs `.overflow-guard`, and WebKit scrolls that box to reveal the caret while typing. Monaco's own `scrollLeft` stays 0 throughout, which is why the two earlier fixes never fired. The boxes around the editor are now `overflow: clip` (unscrollable), with a guard that undoes any stray DOM scroll offset
+- Removed the earlier workaround that forced Monaco's `scrollLeft` to 0 whenever wrap was enabled — with "wrap at column" in a window narrower than the wrap column it made the rightmost columns unreachable (cursor off-screen, no horizontal scroll)
 
 #### 0.0.2 (2026-06-10)
 - Fixed the horizontal-scroll stuck bug — the editor's scrollLeft gets pushed past 0 and, with word wrap on, there's no horizontal scrollbar to drag back

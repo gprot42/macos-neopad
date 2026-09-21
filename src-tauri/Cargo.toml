@@ -1,6 +1,6 @@
 [package]
 name = "neopad"
-version = "0.0.2"
+version = "0.0.3"
 description = "NeoPad - Tabbed text editor"
 authors = ["you"]
 license = ""

@@ -165,40 +165,70 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     ed.revealLine(lastLine);
   });
 
-  // ── Stuck horizontal-scroll guard ──────────────────────────────────────────
-  // With word wrap on, content should never need horizontal scroll, yet a
-  // stale scrollLeft (restored view state, window resize, wrap-setting
-  // change, async re-wrap) can leave the text clipped on the left with no
-  // way to scroll back. When wrap is enabled, force scrollLeft back to 0
-  // unconditionally on every scroll/layout change (belt-and-suspenders —
-  // don't trust getScrollWidth()/contentWidth, which can be momentarily
-  // stale during async re-wrap). When wrap is off, fall back to clamping
-  // into the valid range so genuine long-line scrolling still works.
-  let clampScheduled = false;
-  const clampScrollLeft = () => {
-    if (clampScheduled || !editor) return;
-    clampScheduled = true;
-    requestAnimationFrame(() => {
-      clampScheduled = false;
-      const ed = editor;
-      if (!ed) return;
-      const left = ed.getScrollLeft();
-      const wrapEnabled = settingsStore.get().wordWrap !== 'off';
-      if (wrapEnabled) {
-        if (left !== 0) ed.setScrollLeft(0);
-        return;
-      }
-      const layout = ed.getLayoutInfo();
-      const maxLeft = Math.max(0, ed.getScrollWidth() - layout.contentWidth);
-      if (left > maxLeft || left < 0) {
-        ed.setScrollLeft(Math.min(Math.max(left, 0), maxLeft));
-      }
-    });
-  };
-  editor.onDidScrollChange(clampScrollLeft);
-  editor.onDidLayoutChange(clampScrollLeft);
+  guardAgainstStrayDomScroll(editor);
 
   return editor;
+}
+
+// ── Stray DOM-scroll guard ───────────────────────────────────────────────────
+// The "text shifted left, gutter gone, can't scroll back" bug. Monaco scrolls
+// by repositioning .lines-content, so no box around the editor should ever
+// carry a DOM scroll offset of its own. But while wrapping is active Monaco
+// sizes its hidden input textarea to the wrap width (e.g. 80 cols ≈ 674px,
+// pinned at contentLeft) so screen readers see the same line breaks. In a window
+// narrower than that, the textarea overhangs .overflow-guard and gives it a
+// real horizontal scroll range, which WebKit uses to "reveal" the textarea's
+// caret while typing — dragging gutter and text off the left edge. Monaco only
+// undoes scrollTop on these nodes, and editor.getScrollLeft() reads 0
+// throughout, so resetting Monaco's own scroll position never helped.
+//
+// main.css makes these boxes unscrollable (overflow: clip); this undoes any
+// offset that still lands on one of them, or on an ancestor of the editor.
+//
+// Monaco's structural boxes are matched by selector at event time rather than
+// captured once: Monaco rebuilds its whole DOM subtree on every setModel(),
+// i.e. on every tab switch. The list is deliberately narrow — hovers and other
+// widgets inside the editor scroll their content with real DOM offsets and
+// must be left alone.
+const MONACO_STRUCTURAL_BOXES =
+  '.overflow-guard, .overflow-guard > .editor-scrollable, .overflow-guard > .editor-scrollable > .lines-content';
+
+function guardAgainstStrayDomScroll(ed: monaco.editor.IStandaloneCodeEditor): void {
+  const container = ed.getContainerDomNode();
+
+  // Monaco already translates a stray scrollTop on its own boxes into an
+  // editor scroll, so there only the horizontal axis is ours to undo. The
+  // container and everything above it (… <html>) are not scrollers at all.
+  const reset = (el: Element, bothAxes: boolean) => {
+    if (el.scrollLeft !== 0) el.scrollLeft = 0;
+    if (bothAxes && el.scrollTop !== 0) el.scrollTop = 0;
+  };
+  const resetWindow = () => {
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+  };
+
+  // Scroll events don't bubble, so listen in the capture phase.
+  document.addEventListener('scroll', (e) => {
+    // Printing swaps out the whole <body>; leave that page alone.
+    if (!container.isConnected) return;
+    const target = e.target;
+    if (target === document) {
+      resetWindow();
+    } else if (target instanceof Element) {
+      if (target.contains(container)) reset(target, true);
+      else if (container.contains(target) && target.matches(MONACO_STRUCTURAL_BOXES)) reset(target, false);
+    }
+  }, true);
+
+  // Also heal on the moments the offset tends to appear, in case it was
+  // applied without a scroll event reaching us.
+  const sweep = () => {
+    container.querySelectorAll(MONACO_STRUCTURAL_BOXES).forEach((el) => reset(el, false));
+    for (let el: Element | null = container; el; el = el.parentElement) reset(el, true);
+    resetWindow();
+  };
+  ed.onDidFocusEditorText(sweep);
+  ed.onDidLayoutChange(sweep);
 }
 
 export function getEditor(): monaco.editor.IStandaloneCodeEditor | null {
@@ -219,9 +249,6 @@ export function updateEditorOptions(options: monaco.editor.IEditorOptions): void
     },
     renderControlCharacters: false,
   });
-  if (editor && options.wordWrap && options.wordWrap !== 'off' && editor.getScrollLeft() !== 0) {
-    editor.setScrollLeft(0);
-  }
 }
 
 /** Apply indentation (tab size + spaces/tabs) to all open models. */
@@ -265,9 +292,6 @@ export function setEditorModel(model: monaco.editor.ITextModel | null): void {
     } else {
       editor.setPosition({ lineNumber: 1, column: 1 });
       editor.revealLine(1);
-    }
-    if (settingsStore.get().wordWrap !== 'off' && editor.getScrollLeft() !== 0) {
-      editor.setScrollLeft(0);
     }
     if (incoming) restoreHighlights(editor, incoming);
     editor.focus();

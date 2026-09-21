@@ -38,11 +38,14 @@
         flex: 1;
         min-height: 0;
         overflow: hidden;
+        overflow: clip; /* see main.css: hidden boxes can still be scrolled */
         background: var(--startup-bg);
       }
       #editor-container {
         flex: 1;
         min-width: 0;
+        overflow: hidden;
+        overflow: clip;
         background: var(--startup-bg);
       }
       #status-bar {

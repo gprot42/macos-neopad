@@ -45,12 +45,7 @@
   background: var(--btn-hover);
 }
 
-/* Editor Wrapper — holds outline, editor, preview */
-#editor-wrapper {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
+/* (#editor-wrapper — holds outline, editor, preview — is styled in main.css) */
 
 /* Outline Sidebar */
 #outline-sidebar {

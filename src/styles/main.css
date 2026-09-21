@@ -171,16 +171,34 @@ html, body {
   background: var(--btn-hover);
 }
 
+/* overflow: clip, not hidden — a hidden box can still be scrolled by the
+   browser (WebKit does it to "reveal" Monaco's focused input textarea), which
+   shifts the whole editor sideways with no way to scroll back. A clipped box
+   is not a scroll container at all. Unlike hidden, clip doesn't zero a flex
+   item's automatic minimum size, hence the explicit min-width/min-height —
+   without them the editor could never shrink with the window. */
 #editor-wrapper {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
+  overflow: clip;
   position: relative;
 }
 
 #editor-container {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
+  overflow: clip;
+}
+
+/* Same for Monaco's own boxes around the gutter and text; see
+   guardAgainstStrayDomScroll() in editor-manager.ts for the full story.
+   !important because Monaco sets overflow inline on .editor-scrollable. */
+.monaco-editor .overflow-guard,
+.monaco-editor .overflow-guard > .editor-scrollable {
+  overflow: clip !important;
 }
 
 #status-bar {
