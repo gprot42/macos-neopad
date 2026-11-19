@@ -2,9 +2,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { settingsStore } from '../settings/settings-store';
 import { getActiveTab } from '../tabs/tab-store';
+import { getProjectRoot } from '../project/project';
 import { log } from '../utils/logger';
 import type { Terminal as XTerm } from '@xterm/xterm';
 import type { FitAddon as XFitAddon } from '@xterm/addon-fit';
+import { getPluginTheme } from '../plugins/plugin-themes';
 
 let term: XTerm | null = null;
 let fitAddon: XFitAddon | null = null;
@@ -53,7 +55,7 @@ const THEMES: Record<string, Record<string, string>> = {
 
 function themeColors() {
   const t = settingsStore.get().theme;
-  return THEMES[t] ?? THEMES['tokyo-night'];
+  return THEMES[t] ?? getPluginTheme(t)?.terminal ?? THEMES['tokyo-night'];
 }
 
 function decodeBase64ToBytes(b64: string): Uint8Array {
@@ -227,9 +229,9 @@ export async function showTerminal(): Promise<void> {
 
   if (!sessionLive) {
     const active = getActiveTab();
-    const cwd = active?.filePath
-      ? active.filePath.replace(/\/[^/]*$/, '')
-      : undefined;
+    const cwd =
+      getProjectRoot() ??
+      (active?.filePath ? active.filePath.replace(/\/[^/]*$/, '') : undefined);
     try {
       log.info('terminal: spawning pty', { cwd, cols: term.cols, rows: term.rows });
       await invoke('pty_spawn', {

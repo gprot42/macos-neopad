@@ -1,16 +1,25 @@
 import './styles/themes.css';
 import './styles/main.css';
 import './styles/markdown.css';
-import { initEditor, setEditorTheme, updateEditorOptions, setEditorModel, getEditor, initTabLookup, setEditorIndentation } from './editor/editor-manager';
+import './styles/plugins.css';
+import './styles/project.css';
+import { initEditor, updateEditorOptions, setEditorModel, getEditor, initTabLookup, setEditorIndentation } from './editor/editor-manager';
 import { initHighlightToolbar, setHighlightToolbarTab } from './editor/highlight-toolbar';
 import { restoreHighlights, clearDecorations } from './editor/text-highlight';
 import { renderTabBar } from './tabs/tab-bar';
 import { onTabsChange, addTab, getActiveTab, setTabLanguage, getTabs } from './tabs/tab-store';
 import { settingsStore } from './settings/settings-store';
 import { openSettings } from './settings/settings-panel';
-import { newFile, openFile, openFileByPath, saveFile, saveFileAs, closeTab, closeAllFiles, reopenLastClosed } from './file/file-ops';
+import { newFile, openFile, openFileByPath, saveFile, saveFileAs, closeTab, closeAllFiles, reopenLastClosed, readTabFromDisk, hasTextEncoding } from './file/file-ops';
+import { encodingLabel } from './file/encoding';
+import { toggleEncodingPicker } from './file/encoding-picker';
+import { initDiskWatch } from './file/disk-watch';
+import { initSplitView, toggleSplit, closeSplit, syncSplit, getFocusedTab, getFocusedEditor, isSideFocused } from './editor/split-view';
+import { pickFolder, restoreProject } from './project/project';
+import { initSidebar, toggleSidebar, showFindInFiles, closeFolder } from './project/sidebar';
+import { initQuickOpen, openQuickOpen } from './project/quick-open';
 import { triggerFind, triggerReplace } from './search/search-bar';
-import { availableLanguages } from './editor/languages';
+import { getAvailableLanguages } from './editor/languages';
 import { initPreview, togglePreview, showPreviewIfMarkdown, isPreviewVisible, getPreviewHTMLForExport } from './markdown/preview';
 import { registerFormattingActions, renderFormattingToolbar, showToolbarIfMarkdown } from './markdown/formatting';
 import { registerListActions } from './markdown/lists';
@@ -31,6 +40,10 @@ import { lockManager, startAutoLock, stopAutoLock, resetActivityTimer } from './
 import { encryptText, decryptText } from './crypto/crypto-manager';
 import { promptPassword, promptNewPassword } from './crypto/password-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
+import { applyChromeTheme, applyTheme } from './editor/apply-theme';
+import { restorePluginThemeSnapshot } from './plugins/plugin-themes';
+import { initPlugins } from './plugins/plugin-manager';
+import { openPlugins } from './plugins/plugins-panel';
 
 // Print current file
 function printCurrentFile(): void {
@@ -140,12 +153,15 @@ function printCurrentFile(): void {
 
 // Apply initial theme
 const initialSettings = settingsStore.get();
-document.documentElement.setAttribute('data-theme', initialSettings.theme);
+// A plugin theme is re-created from its last snapshot until plugins finish loading.
+restorePluginThemeSnapshot(initialSettings.theme);
+applyChromeTheme(initialSettings.theme);
 
 // Initialize Monaco editor
 log.info('NeoPad starting up, version:', typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'unknown');
 const editorContainer = document.getElementById('editor-container')!;
 const editor = initEditor(editorContainer);
+applyTheme(initialSettings.theme);
 
 // Wire tab lookups so setEditorModel can save/restore per-tab view state
 initTabLookup(
@@ -181,6 +197,17 @@ editor.focus();
 // Start auto-saving session state
 startSessionAutoSave();
 
+// Notice files changed on disk by other programs
+initDiskWatch(readTabFromDisk);
+
+// Folder sidebar, Go to File and Find in Files; re-open the last folder
+initSidebar();
+initQuickOpen();
+void restoreProject();
+
+// Load plugins (VS Code themes, grammars, snippets) in the background.
+void initPlugins();
+
 // Restore window position first (await so tracking doesn't race with restore),
 // then start tracking movements/resizes.
 (async () => {
@@ -201,8 +228,7 @@ renderTabBar();
 
 // Settings change handler
 settingsStore.onChange((settings) => {
-  document.documentElement.setAttribute('data-theme', settings.theme);
-  setEditorTheme(settings.theme);
+  applyTheme(settings.theme);
   updateEditorOptions({
     fontSize: settings.fontSize,
     wordWrap: settings.wordWrap as 'off' | 'on' | 'wordWrapColumn' | 'bounded',
@@ -237,17 +263,19 @@ editor.onDidChangeModelContent(() => {
 // Status bar
 function updateStatusBar(): void {
   const statusBar = document.getElementById('status-bar')!;
-  const tab = getActiveTab();
+  // Follows whichever pane is being typed in when the editor is split.
+  const tab = getFocusedTab();
 
   if (!tab) {
     statusBar.innerHTML = '<span class="status-item">No file open</span>';
     return;
   }
 
-  const pos = editor.getPosition();
+  const pos = (getFocusedEditor() ?? editor).getPosition();
   const line = pos?.lineNumber ?? 1;
   const col = pos?.column ?? 1;
-  const isMd = tab.language === 'markdown';
+  // Word count, preview and outline belong to the main pane.
+  const isMd = tab.language === 'markdown' && !isSideFocused();
 
   let mdParts = '';
   if (isMd) {
@@ -265,7 +293,9 @@ function updateStatusBar(): void {
 
   statusBar.innerHTML = `
     <span class="status-item">Ln ${line}, Col ${col}</span>
-    <span class="status-item">UTF-8</span>
+    ${hasTextEncoding(tab)
+      ? `<span class="status-item encoding-picker" id="encoding-picker">${encodingLabel(tab.encoding, tab.bom)}</span>`
+      : ''}
     ${mdParts}
     <div class="status-right">
       <span class="status-item language-picker" id="lang-picker">${tab.language}</span>
@@ -275,6 +305,10 @@ function updateStatusBar(): void {
   // Event listeners
   document.getElementById('lang-picker')?.addEventListener('click', () => {
     toggleLanguageDropdown();
+  });
+
+  document.getElementById('encoding-picker')?.addEventListener('click', (e) => {
+    toggleEncodingPicker(tab, e.currentTarget as HTMLElement);
   });
 
   document.getElementById('status-preview-toggle')?.addEventListener('click', () => {
@@ -294,6 +328,9 @@ editor.onDidChangeCursorPosition(() => {
 
 updateStatusBar();
 
+// Split view; the status bar follows the focused pane
+initSplitView(() => updateStatusBar());
+
 // Language dropdown
 let langDropdownVisible = false;
 
@@ -305,13 +342,13 @@ function toggleLanguageDropdown(): void {
     return;
   }
 
-  const tab = getActiveTab();
+  const tab = getFocusedTab();
   if (!tab) return;
 
   dropdown = document.createElement('div');
   dropdown.className = 'lang-dropdown';
 
-  for (const lang of [...availableLanguages].sort((a, b) => a.localeCompare(b))) {
+  for (const lang of getAvailableLanguages().sort((a, b) => a.localeCompare(b))) {
     const item = document.createElement('div');
     item.className = `lang-item${tab.language === lang ? ' active' : ''}`;
     item.textContent = lang;
@@ -371,17 +408,37 @@ function showAboutDialog(version: string) {
     case 'open_file':
       openFile();
       break;
+    case 'open_folder':
+      void pickFolder();
+      break;
+    case 'close_folder':
+      closeFolder();
+      break;
+    case 'go_to_file':
+      openQuickOpen();
+      break;
+    case 'find_in_files':
+      showFindInFiles();
+      break;
+    case 'toggle_files':
+      toggleSidebar();
+      break;
     case 'reopen_closed':
       reopenLastClosed();
       break;
     case 'save':
-      saveFile();
+      void saveFile(getFocusedTab() ?? undefined);
       break;
     case 'save_as':
-      saveFileAs();
+      void saveFileAs(getFocusedTab() ?? undefined);
       break;
     case 'close_tab':
-      closeTab();
+      // In the split pane, Close closes the pane rather than a tab.
+      if (isSideFocused()) closeSplit();
+      else closeTab();
+      break;
+    case 'split_editor':
+      toggleSplit();
       break;
     case 'close_all':
       closeAllFiles();
@@ -391,6 +448,9 @@ function showAboutDialog(version: string) {
       break;
     case 'settings':
       openSettings();
+      break;
+    case 'plugins':
+      openPlugins();
       break;
     case 'find':
       triggerFind();
@@ -508,6 +568,8 @@ function syncLockOverlay(): void {
   } else {
     lockOverlay.classList.add('hidden');
   }
+  // A locked tab's text is cleared, so it must not stay editable in the split.
+  syncSplit();
 }
 
 /** Lock all currently unlocked encrypted tabs (called by auto-lock timer). */

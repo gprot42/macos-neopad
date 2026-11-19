@@ -1,0 +1,28 @@
+{
+  "name": "sample-themes",
+  "publisher": "neopad",
+  "displayName": "Nebula Themes (sample plugin)",
+  "description": "A dark and a light theme, preinstalled to show how NeoPad plugins work. Open its folder to see the files, edit a colour, then click Reload.",
+  "version": "1.0.0",
+  "icon": "icon.svg",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Nebula",
+        "uiTheme": "vs-dark",
+        "path": "./themes/nebula-color-theme.json"
+      },
+      {
+        "label": "Nebula Dawn",
+        "uiTheme": "vs",
+        "path": "./themes/nebula-dawn-color-theme.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+// Nebula — the dark half of NeoPad's sample theme plugin.
+// This is a standard VS Code colour theme. Comments are allowed.
+{
+  "name": "Nebula",
+  "type": "dark",
+
+  // ── Interface colours ──────────────────────────────────────────────────
+  // Keys are VS Code's theme colour names. NeoPad uses the editor ones for
+  // the editor, and the tab/sidebar/terminal ones for the rest of the window.
+  "colors": {
+    "editor.background": "#1b1d2b",
+    "editor.foreground": "#c9cbe0",
+    "editorCursor.foreground": "#b8a8ff",
+    "editor.selectionBackground": "#3a3560",
+    "editor.lineHighlightBackground": "#22253a",
+    "editorLineNumber.foreground": "#4a4e6e",
+    "editorLineNumber.activeForeground": "#a5a8c8",
+    "editorIndentGuide.background1": "#2a2d42",
+    "editorWhitespace.foreground": "#34374f",
+    "editorBracketMatch.border": "#8f7cf780",
+    "editorWidget.background": "#151724",
+    "editorWidget.border": "#2a2d42",
+
+    "focusBorder": "#8f7cf7",
+    "textLink.foreground": "#89ddff",
+    "textBlockQuote.border": "#3a3560",
+    "textCodeBlock.background": "#151724",
+
+    "sideBar.background": "#151724",
+    "tab.activeBackground": "#1b1d2b",
+    "tab.inactiveBackground": "#151724",
+    "tab.hoverBackground": "#202339",
+    "tab.border": "#2a2d42",
+
+    "terminal.background": "#161826",
+    "terminal.foreground": "#c9cbe0",
+    "terminalCursor.foreground": "#b8a8ff",
+    "terminal.ansiBlack": "#1b1d2b",
+    "terminal.ansiRed": "#ff6b8b",
+    "terminal.ansiGreen": "#9ce3b8",
+    "terminal.ansiYellow": "#ffcb6b",
+    "terminal.ansiBlue": "#82aaff",
+    "terminal.ansiMagenta": "#c792ea",
+    "terminal.ansiCyan": "#89ddff",
+    "terminal.ansiWhite": "#c9cbe0",
+    "terminal.ansiBrightBlack": "#4a4e6e",
+    "terminal.ansiBrightRed": "#ff8fa8",
+    "terminal.ansiBrightGreen": "#b8f0cf",
+    "terminal.ansiBrightYellow": "#ffdc94",
+    "terminal.ansiBrightBlue": "#a6c4ff",
+    "terminal.ansiBrightMagenta": "#dcb4f5",
+    "terminal.ansiBrightCyan": "#b0ebff",
+    "terminal.ansiBrightWhite": "#eef0ff"
+  },
+
+  // ── Syntax colours ─────────────────────────────────────────────────────
+  // Each rule matches TextMate scopes. A rule for "string" also covers
+  // "string.quoted.double", and so on; the most specific match wins.
+  "tokenColors": [
+    { "scope": ["comment", "punctuation.definition.comment"], "settings": { "foreground": "#6b6f94", "fontStyle": "italic" } },
+    { "scope": ["keyword", "storage", "storage.type"], "settings": { "foreground": "#c792ea" } },
+    { "scope": ["keyword.operator", "punctuation.accessor"], "settings": { "foreground": "#89ddff" } },
+    { "scope": ["string", "punctuation.definition.string"], "settings": { "foreground": "#9ce3b8" } },
+    { "scope": ["constant.character.escape", "string.regexp"], "settings": { "foreground": "#ff9cb0" } },
+    { "scope": ["constant.numeric", "constant.language", "constant.other"], "settings": { "foreground": "#f7a46b" } },
+    { "scope": ["entity.name.function", "support.function", "meta.function-call.generic"], "settings": { "foreground": "#82aaff" } },
+    { "scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"], "settings": { "foreground": "#ffcb6b" } },
+    { "scope": ["variable.parameter"], "settings": { "foreground": "#f0a8c0" } },
+    { "scope": ["variable.language", "support.variable"], "settings": { "foreground": "#ff7a93" } },
+    { "scope": ["entity.name.tag"], "settings": { "foreground": "#ff7a93" } },
+    { "scope": ["entity.other.attribute-name", "support.type.property-name"], "settings": { "foreground": "#ffcb6b" } },
+    { "scope": ["punctuation"], "settings": { "foreground": "#8a8fb5" } },
+    { "scope": ["invalid"], "settings": { "foreground": "#ff5370", "fontStyle": "underline" } },
+
+    // Markdown
+    { "scope": ["markup.heading", "entity.name.section"], "settings": { "foreground": "#82aaff", "fontStyle": "bold" } },
+    { "scope": ["markup.bold"], "settings": { "foreground": "#ffcb6b", "fontStyle": "bold" } },
+    { "scope": ["markup.italic"], "settings": { "foreground": "#c792ea", "fontStyle": "italic" } },
+    { "scope": ["markup.inline.raw", "markup.fenced_code", "markup.raw"], "settings": { "foreground": "#9ce3b8" } },
+    { "scope": ["markup.underline.link", "string.other.link"], "settings": { "foreground": "#89ddff" } },
+    { "scope": ["markup.quote"], "settings": { "foreground": "#6b6f94", "fontStyle": "italic" } },
+    { "scope": ["markup.list", "punctuation.definition.list"], "settings": { "foreground": "#c792ea" } }
+  ]
+}

@@ -1,19 +1,19 @@
-import { getEditor } from '../editor/editor-manager';
+import { getFocusedEditor } from '../editor/split-view';
 
 export function triggerFind(): void {
-  const editor = getEditor();
+  const editor = getFocusedEditor();
   if (!editor) return;
   editor.getAction('actions.find')?.run();
 }
 
 export function triggerReplace(): void {
-  const editor = getEditor();
+  const editor = getFocusedEditor();
   if (!editor) return;
   editor.getAction('editor.action.startFindReplaceAction')?.run();
 }
 
 export function triggerFindWithSelection(): void {
-  const editor = getEditor();
+  const editor = getFocusedEditor();
   if (!editor) return;
   const selection = editor.getSelection();
   if (selection && !selection.isEmpty()) {

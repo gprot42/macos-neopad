@@ -14,6 +14,8 @@ interface SavedTab {
   language: string;
   content: string;
   isDirty: boolean;
+  encoding?: string;
+  bom?: boolean;
   /** True when the tab belongs to an encrypted .neo file */
   isEncrypted?: boolean;
 }
@@ -43,6 +45,8 @@ function serializeSession(): SavedSession {
         // Never persist plaintext content of encrypted files
         content: encrypted ? '' : t.model.getValue(),
         isDirty: encrypted ? false : t.isDirty,
+        encoding: t.encoding,
+        bom: t.bom,
         isEncrypted: encrypted || undefined,
       };
     }),
@@ -87,6 +91,10 @@ export function restoreSession(): boolean {
       if (!saved.content && !saved.filePath) continue;
 
       const tab = addTab(saved.filePath, saved.content, saved.language);
+      if (saved.encoding) {
+        tab.encoding = saved.encoding;
+        tab.bom = saved.bom ?? false;
+      }
       // Unsaved content is always dirty
       if (saved.isDirty || (!saved.filePath && saved.content)) {
         tab.isDirty = true;

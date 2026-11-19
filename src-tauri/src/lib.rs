@@ -5,6 +5,9 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_fs::FsExt;
 
+mod encoding;
+mod plugins;
+mod project;
 mod pty;
 
 struct PendingFiles(Mutex<Vec<String>>);
@@ -68,6 +71,37 @@ fn read_file_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileStat {
+    mtime_ms: f64,
+    size: u64,
+}
+
+/// Modification time and size of each path, or `None` where there is no such
+/// file. The frontend polls this to notice files changed outside NeoPad.
+#[tauri::command]
+async fn file_stats(paths: Vec<String>) -> Vec<Option<FileStat>> {
+    paths
+        .iter()
+        .map(|path| {
+            let meta = std::fs::metadata(path).ok()?;
+            if !meta.is_file() {
+                return None;
+            }
+            let mtime = meta
+                .modified()
+                .ok()?
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()?;
+            Some(FileStat {
+                mtime_ms: mtime.as_secs_f64() * 1000.0,
+                size: meta.len(),
+            })
+        })
+        .collect()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -83,11 +117,26 @@ pub fn run() {
             get_pending_files,
             read_file_bytes,
             read_file_text,
+            file_stats,
+            encoding::read_text_file,
+            encoding::write_text_file,
             append_log,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
-            pty::pty_kill
+            pty::pty_kill,
+            plugins::plugins_list,
+            plugins::plugins_read_text,
+            plugins::plugins_read_base64,
+            plugins::plugins_install_vsix,
+            plugins::plugins_install_openvsx,
+            plugins::plugins_uninstall,
+            plugins::plugins_reveal,
+            plugins::plugins_seed,
+            project::project_open,
+            project::project_read_dir,
+            project::project_list_files,
+            project::project_search
         ])
         .setup(|app| {
             // Register file type handlers with macOS on every launch
@@ -162,6 +211,20 @@ pub fn run() {
             let open = MenuItemBuilder::with_id("open_file", "Open...")
                 .accelerator("CmdOrCtrl+O")
                 .build(handle)?;
+            let open_folder = MenuItemBuilder::with_id("open_folder", "Open Folder...")
+                .accelerator("CmdOrCtrl+Alt+O")
+                .build(handle)?;
+            let close_folder =
+                MenuItemBuilder::with_id("close_folder", "Close Folder").build(handle)?;
+            let go_to_file = MenuItemBuilder::with_id("go_to_file", "Go to File...")
+                .accelerator("CmdOrCtrl+T")
+                .build(handle)?;
+            let find_in_files = MenuItemBuilder::with_id("find_in_files", "Find in Files...")
+                .accelerator("CmdOrCtrl+Shift+F")
+                .build(handle)?;
+            let toggle_files = MenuItemBuilder::with_id("toggle_files", "Toggle Files Sidebar")
+                .accelerator("CmdOrCtrl+Shift+B")
+                .build(handle)?;
             let reopen_closed = MenuItemBuilder::with_id("reopen_closed", "Reopen Closed Tab")
                 .accelerator("CmdOrCtrl+Shift+T")
                 .build(handle)?;
@@ -185,6 +248,9 @@ pub fn run() {
             let settings = MenuItemBuilder::with_id("settings", "Settings...")
                 .accelerator("CmdOrCtrl+,")
                 .build(handle)?;
+            let plugins = MenuItemBuilder::with_id("plugins", "Plugins...")
+                .accelerator("CmdOrCtrl+Shift+X")
+                .build(handle)?;
 
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
@@ -207,6 +273,9 @@ pub fn run() {
                 .build(handle)?;
             let toggle_terminal = MenuItemBuilder::with_id("toggle_terminal", "Toggle Terminal")
                 .accelerator("Ctrl+`")
+                .build(handle)?;
+            let split_editor = MenuItemBuilder::with_id("split_editor", "Split Editor")
+                .accelerator("CmdOrCtrl+\\")
                 .build(handle)?;
             let select_language =
                 MenuItemBuilder::with_id("select_language", "Language...").build(handle)?;
@@ -235,6 +304,9 @@ pub fn run() {
                 .item(&new_tab)
                 .separator()
                 .item(&open)
+                .item(&open_folder)
+                .item(&close_folder)
+                .item(&go_to_file)
                 .item(&reopen_closed)
                 .separator()
                 .item(&save)
@@ -246,6 +318,7 @@ pub fn run() {
                 .item(&print)
                 .separator()
                 .item(&settings)
+                .item(&plugins)
                 .separator()
                 .item(&quit)
                 .build()?;
@@ -262,12 +335,15 @@ pub fn run() {
                 .separator()
                 .item(&find)
                 .item(&replace)
+                .item(&find_in_files)
                 .build()?;
 
             // === View menu: pane toggles ===
             let view_menu = SubmenuBuilder::new(handle, "View")
+                .item(&toggle_files)
                 .item(&toggle_preview)
                 .item(&toggle_outline)
+                .item(&split_editor)
                 .separator()
                 .item(&toggle_terminal)
                 .separator()

@@ -1,6 +1,7 @@
 export interface Settings {
   fontSize: number;
-  theme: 'light' | 'dark' | 'tokyo-night' | 'mariana';
+  /** A built-in theme, or a plugin theme id (`publisher.name/Label`). */
+  theme: BuiltinTheme | (string & {});
   wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded';
   wordWrapColumn: number;
   /** Number of spaces (or columns) per indentation level */
@@ -20,13 +21,18 @@ export interface Settings {
   terminalHeight: number;
   /** Persisted terminal font size in pixels */
   terminalFontSize: number;
+  /** Extension ids (`publisher.name`) of installed plugins the user switched off. */
+  disabledPlugins: string[];
 }
+
+export type BuiltinTheme = 'light' | 'dark' | 'tokyo-night' | 'mariana';
+export const DEFAULT_THEME: BuiltinTheme = 'tokyo-night';
 
 const STORAGE_KEY = 'neopad-settings';
 
 const defaults: Settings = {
   fontSize: 14,
-  theme: 'tokyo-night',
+  theme: DEFAULT_THEME,
   wordWrap: 'wordWrapColumn',
   wordWrapColumn: 80,
   tabSize: 2,
@@ -38,6 +44,7 @@ const defaults: Settings = {
   terminalOpen: false,
   terminalHeight: 220,
   terminalFontSize: 13,
+  disabledPlugins: [],
 };
 
 type SettingsListener = (settings: Settings) => void;

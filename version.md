@@ -1,9 +1,26 @@
 # NeoPad Version
 
 ## Current Version
-0.0.3
+0.0.4
 
 ## Changelog
+
+#### 0.0.4 (2026-11-19)
+- **Split view** (View → Split Editor, ⌘\): a second editor pane beside the main one, showing the same file or a different open tab. Right-click a tab → *Open to the Side*, or click the pane's title to choose its tab. Edits on either side appear in both; Save, Find and the status bar follow the pane you are typing in, and ⌘W in the split pane closes the pane
+- **Text encodings**: files that are not UTF-8 now open correctly. The encoding is detected (byte-order mark, then UTF-8, then a best guess for legacy encodings such as Windows-1252 or Shift JIS), shown in the status bar, and used again on save, so a file is written back the way it was found
+- Click the encoding in the status bar to *Reopen with Encoding* (when the guess was wrong) or *Save with Encoding* (to convert the file). Saving is refused, and the file left untouched, if the text has characters the chosen encoding cannot represent
+- Opening a binary file, or a file that cannot be read, now says so instead of silently doing nothing; a failed save is reported too
+- **Folders** (NeoPad → Open Folder…, ⌥⌘O): open a folder to get a file-tree sidebar (View → Toggle Files Sidebar, ⇧⌘B). Click a file to open it, or switch to its tab if it is already open. The tree picks up files created or removed outside NeoPad, and the folder is reopened on the next launch
+- **Go to File** (⌘T): type part of a name to jump to any file in the open folder
+- **Find in Files** (Edit → Find in Files…, ⇧⌘F): search the open folder, with match-case and regular-expression options; click a result to open the file at that line
+- Go to File and Find in Files skip anything ignored by `.gitignore` (`node_modules`, build output, …); Find in Files also skips binary files and files over 2 MB
+- A terminal opened while a folder is open starts in that folder
+- **External file changes**: NeoPad now notices when an open file is changed by another program (git, another editor, a command in the terminal panel). A tab with no unsaved edits reloads on its own (undoable with ⌘Z); a tab with unsaved edits shows a banner offering *Reload from Disk* or *Keep My Edits*, and saving asks before overwriting the newer file. A file that is deleted or moved marks its tab as modified so it can be saved back
+- **Plugins** (NeoPad → Plugins…, ⌘⇧X): install VS Code extensions from a `.vsix` file or by searching Open VSX. NeoPad uses their colour themes, TextMate syntax grammars, snippets and language settings, and never runs extension code
+- Plugin themes colour the whole window — tabs, status bar, terminal and Markdown preview as well as the editor — and appear in Settings → Theme
+- Preinstalled sample plugin, *Nebula Themes* (a dark and a light theme), as a working example to inspect and edit
+- Fixed the built-in Light, Dark and Mariana themes only recolouring the editor: the tab bar and status bar stayed Tokyo Night because `main.css` overrode the theme variables
+- Fixed the status bar turning grey in light themes
 
 #### 0.0.3 (2026-09-21)
 - Fixed the editor shifting sideways (gutter gone, first characters clipped, no way to scroll back). Root cause: with wrapping on, Monaco sizes its hidden input textarea to the wrap width; in a window narrower than that it overhangs `.overflow-guard`, and WebKit scrolls that box to reveal the caret while typing. Monaco's own `scrollLeft` stays 0 throughout, which is why the two earlier fixes never fired. The boxes around the editor are now `overflow: clip` (unscrollable), with a guard that undoes any stray DOM scroll offset

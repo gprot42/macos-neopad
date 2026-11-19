@@ -111,10 +111,20 @@ src/
   main.ts                    # App entry point, menu action handler
   editor/
     themes.ts                # Monaco theme definitions (light, dark, tokyo-night, mariana)
+    apply-theme.ts           # Applies a theme (built-in or plugin) to the whole window
+    split-view.ts            # Second editor pane beside the main one
+  plugins/                   # VS Code extension support — see "Plugins" below
   file/
     file-ops.ts              # Open/save/close, .docx conversion via mammoth
     session-recovery.ts      # Auto-save unsaved content to temp files
+    disk-watch.ts            # Poll open files for outside changes; reload or show conflict banner
+    encoding.ts              # Encoding list; read/write text in a given encoding (via Rust)
+    encoding-picker.ts       # Status bar menu: Reopen / Save with Encoding
     window-state.ts          # Save/restore window position on quit/launch
+  project/
+    project.ts               # Open folder state, persistence, opening files in tabs
+    sidebar.ts               # File tree and Find in Files sidebar
+    quick-open.ts            # Go to File palette
   markdown/
     preview.ts               # Live Markdown preview pane
     formatting.ts            # Bold/italic/heading shortcuts
@@ -135,6 +145,9 @@ src/
 
 src-tauri/
   src/lib.rs                 # Rust entry point, Tauri commands, native menu
+  src/plugins.rs             # Plugins folder: list, confined reads, .vsix install, Open VSX download
+  src/encoding.rs            # Encoding detection, decode and encode for text files
+  src/project.rs             # Folder support: directory listing, .gitignore-aware file list and search
   Info.plist                 # Custom plist keys (CFBundleDocumentTypes, UTImportedTypeDeclarations)
   tauri.conf.json            # Tauri config (bundle ID, fileAssociations, window defaults)
   Cargo.toml                 # Rust dependencies
@@ -261,6 +274,37 @@ Print CSS (`@media print`) strips tab headers, forces black text, and shows only
 | Mariana | Sublime Text Mariana palette |
 
 Themes are defined as CSS variables in `src/styles/themes.css` and as Monaco token rules in `src/editor/themes.ts`.
+Plugins can add more (see below); `settings.theme` then holds a plugin theme id such as `neopad.sample-themes/Nebula`.
+
+---
+
+## Plugins
+
+NeoPad installs **VS Code extensions** but only uses their data — it never runs extension code.
+Open with **NeoPad → Plugins…** (⌘⇧X).
+
+| Contribution point | What NeoPad does with it | Module |
+|---|---|---|
+| `themes` | Converts to a Monaco theme, plus CSS variables for the chrome, the xterm palette and the Markdown preview | `plugins/vscode-theme.ts` |
+| `grammars` | TextMate grammars via `vscode-textmate` + `vscode-oniguruma` (WASM) | `plugins/textmate.ts` |
+| `languages` | Language ids, file extensions/filenames, `language-configuration.json` | `plugins/language-config.ts`, `editor/languages.ts` |
+| `snippets` | VS Code snippet files → completion items | `plugins/snippets.ts` |
+
+Anything else (`commands`, `keybindings`, `iconThemes`, `main`/`browser` code…) is listed as unused in the panel.
+An install that contributes nothing usable is removed again straight away.
+
+- **Storage:** `~/Library/Application Support/com.neopad.editor/plugins/<publisher>.<name>-<version>/`, the same
+  layout as VS Code. Disabled plugins are listed in `settings.disabledPlugins`.
+- **Sources:** a `.vsix` file, or Open VSX (searched from the webview; downloaded by Rust with `curl`, https-only,
+  checked against the published SHA-256).
+- **Built-in sample:** `src/plugins/builtin/neopad.sample-themes/` is bundled and copied into the plugins folder
+  on first launch only (`.seeded.json` records it), so uninstalling it sticks. Add more in `builtin/index.ts`.
+- **Untrusted input:** Rust confines every read to the plugin's folder (symlinks included) and caps `.vsix`
+  extraction; every colour is parsed and re-serialised as hex before reaching CSS; plugin text is rendered
+  with `textContent`; grammars get a per-line time limit.
+- **Startup:** the active plugin theme is snapshotted to localStorage so it paints before plugins finish loading.
+- **Testing in a browser:** `bun run dev:vite` serves the built-in plugin read-only, so the panel and themes work
+  without Tauri (installing doesn't). Rust tests: `cd src-tauri && cargo test --lib plugins`.
 
 ---
 

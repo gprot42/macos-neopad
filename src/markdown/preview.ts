@@ -2,6 +2,8 @@ import { marked } from 'marked';
 import { getEditor } from '../editor/editor-manager';
 import { getActiveTab } from '../tabs/tab-store';
 import { settingsStore } from '../settings/settings-store';
+import { getPluginTheme } from '../plugins/plugin-themes';
+import { previewCss } from '../plugins/vscode-theme';
 
 let previewEl: HTMLElement | null = null;
 let visible = false;
@@ -65,7 +67,9 @@ async function renderMermaidBlocks(doc: Document, seq: number): Promise<void> {
   const mermaid = await loadMermaid();
   if (seq !== renderSeq) return; // superseded while loading
 
-  const theme = settingsStore.get().theme === 'light' ? 'default' : 'dark';
+  const id = settingsStore.get().theme;
+  const light = id === 'light' || getPluginTheme(id)?.dark === false;
+  const theme = light ? 'default' : 'dark';
   mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'loose', fontFamily: 'inherit' });
 
   for (const block of blocks) {
@@ -259,7 +263,8 @@ const previewStyles: Record<string, string> = {
 
 function getPreviewHTML(markdown: string): string {
   const theme = settingsStore.get().theme;
-  const css = previewStyles[theme] ?? previewStyles['tokyo-night'];
+  const plugin = getPluginTheme(theme);
+  const css = previewStyles[theme] ?? (plugin ? previewCss(plugin.preview) : previewStyles['tokyo-night']);
   const html = marked.parse(markdown, { async: false }) as string;
   return `<!DOCTYPE html>
 <html><head><style>

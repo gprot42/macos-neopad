@@ -2,7 +2,9 @@ import { defineConfig } from 'vite';
 import { readFileSync } from 'node:fs';
 
 const host = process.env.TAURI_DEV_HOST;
-const version = readFileSync('version.md', 'utf-8').trim();
+// version.md holds the version on the line after "## Current Version", then the changelog.
+const version =
+  readFileSync('version.md', 'utf-8').match(/^## Current Version\s*\n\s*(\S+)/m)?.[1] ?? '0.0.0';
 
 export default defineConfig({
   define: {

@@ -1,8 +1,9 @@
 import * as monaco from 'monaco-editor';
+import { getPluginTheme, monacoThemeName } from '../plugins/plugin-themes';
 
 // Colour tokens that produce the yellow "occurrence highlight" boxes.
 // Setting them all to #00000000 (fully transparent) kills the boxes in every theme.
-const NO_HIGHLIGHT: Record<string, string> = {
+export const NO_HIGHLIGHT: Record<string, string> = {
   'editor.wordHighlightBackground':            '#00000000',
   'editor.wordHighlightBorder':                '#00000000',
   'editor.wordHighlightStrongBackground':      '#00000000',
@@ -57,8 +58,16 @@ function markdownRules(c: MarkdownPalette): monaco.editor.ITokenThemeRule[] {
   ];
 }
 
+// Token names each built-in theme colours, for the TextMate tokenizer.
+const builtinRuleTokens = new Map<string, string[]>();
+
+function define(name: string, data: monaco.editor.IStandaloneThemeData): void {
+  builtinRuleTokens.set(name, data.rules.map((r) => r.token).filter(Boolean));
+  monaco.editor.defineTheme(name, data);
+}
+
 export function registerThemes(): void {
-  monaco.editor.defineTheme('neo-light', {
+  define('neo-light', {
     base: 'vs',
     inherit: true,
     rules: [
@@ -120,7 +129,7 @@ export function registerThemes(): void {
     },
   });
 
-  monaco.editor.defineTheme('neo-dark', {
+  define('neo-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -141,7 +150,7 @@ export function registerThemes(): void {
     },
   });
 
-  monaco.editor.defineTheme('neo-tokyo-night', {
+  define('neo-tokyo-night', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -205,7 +214,7 @@ export function registerThemes(): void {
     },
   });
 
-  monaco.editor.defineTheme('neo-mariana', {
+  define('neo-mariana', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -276,3 +285,15 @@ export const themeMap: Record<string, string> = {
   'tokyo-night': 'neo-tokyo-night',
   'mariana': 'neo-mariana',
 };
+
+/** The Monaco theme for a NeoPad theme id, built-in or from a plugin. */
+export function resolveMonacoTheme(themeId: string): string {
+  if (themeMap[themeId]) return themeMap[themeId];
+  if (getPluginTheme(themeId)) return monacoThemeName(themeId);
+  return themeMap['tokyo-night'];
+}
+
+/** The token names a theme colours (see setThemeRuleTokens in plugins/textmate.ts). */
+export function themeRuleTokens(themeId: string): string[] {
+  return getPluginTheme(themeId)?.ruleTokens ?? builtinRuleTokens.get(resolveMonacoTheme(themeId)) ?? [];
+}

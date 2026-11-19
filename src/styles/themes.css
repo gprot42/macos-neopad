@@ -1,5 +1,9 @@
+/* Built-in theme chrome. `:root[...]` rather than a bare `[data-theme]`
+   selector: main.css loads after this file and sets the Tokyo Night values on
+   :root, which would otherwise win at equal specificity. */
+
 /* Light theme */
-[data-theme="light"] {
+:root[data-theme="light"] {
   --bg: #ffffff;
   --fg: #24292f;
   --sidebar: #f6f8fa;
@@ -13,7 +17,7 @@
 }
 
 /* Dark theme */
-[data-theme="dark"] {
+:root[data-theme="dark"] {
   --bg: #1e1e1e;
   --fg: #d4d4d4;
   --sidebar: #252526;
@@ -27,7 +31,7 @@
 }
 
 /* Tokyo Night theme */
-[data-theme="tokyo-night"] {
+:root[data-theme="tokyo-night"] {
   --bg: #1a1b26;
   --fg: #a9b1d6;
   --sidebar: #16161e;
@@ -41,7 +45,7 @@
 }
 
 /* Mariana theme (Sublime Text Mariana palette) */
-[data-theme="mariana"] {
+:root[data-theme="mariana"] {
   --bg: #303841;
   --fg: #d8dee9;
   --sidebar: #262d38;

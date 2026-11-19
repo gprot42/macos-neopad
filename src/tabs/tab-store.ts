@@ -8,6 +8,10 @@ export interface Tab {
   filePath: string | null;
   language: string;
   isDirty: boolean;
+  /** Encoding the file was read in and is saved back as (WHATWG name). */
+  encoding: string;
+  /** Whether the file has a byte-order mark. */
+  bom: boolean;
   model: monaco.editor.ITextModel;
   viewState: monaco.editor.ICodeEditorViewState | null;
   highlights: import('../editor/text-highlight').HighlightEntry[];
@@ -52,7 +56,7 @@ export function addTab(
   const model = monaco.editor.createModel(content, lang, uri);
   applyIndentationToModel(model);
 
-  const tab: Tab = { id, title, filePath, language: lang, isDirty: false, model, viewState: null, highlights: [] };
+  const tab: Tab = { id, title, filePath, language: lang, isDirty: false, encoding: 'UTF-8', bom: false, model, viewState: null, highlights: [] };
   tabs.push(tab);
   activeId = id;
 
@@ -110,6 +114,14 @@ export function markClean(id: string): void {
   }
 }
 
+export function markDirty(id: string): void {
+  const tab = tabs.find((t) => t.id === id);
+  if (tab && !tab.isDirty) {
+    tab.isDirty = true;
+    notify();
+  }
+}
+
 export function updateTabInfo(
   id: string,
   filePath: string,
@@ -123,6 +135,15 @@ export function updateTabInfo(
       tab.language = language;
       monaco.editor.setModelLanguage(tab.model, language);
     }
+    notify();
+  }
+}
+
+export function setTabEncoding(id: string, encoding: string, bom: boolean): void {
+  const tab = tabs.find((t) => t.id === id);
+  if (tab) {
+    tab.encoding = encoding;
+    tab.bom = bom;
     notify();
   }
 }

@@ -1,5 +1,7 @@
 import { settingsStore, type Settings } from './settings-store';
 import { disableTerminalFeature } from '../terminal/terminal-panel';
+import { getPluginThemes, selectTheme } from '../plugins/plugin-manager';
+import { openPlugins } from '../plugins/plugins-panel';
 
 let isOpen = false;
 
@@ -21,12 +23,15 @@ export function openSettings(): void {
 
     <div class="settings-section">
       <label>Theme</label>
-      <select id="setting-theme">
-        <option value="light" ${settings.theme === 'light' ? 'selected' : ''}>Light</option>
-        <option value="dark" ${settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
-        <option value="tokyo-night" ${settings.theme === 'tokyo-night' ? 'selected' : ''}>Tokyo Night</option>
-        <option value="mariana" ${settings.theme === 'mariana' ? 'selected' : ''}>Mariana</option>
-      </select>
+      <div class="settings-row">
+        <select id="setting-theme">
+          <option value="light" ${settings.theme === 'light' ? 'selected' : ''}>Light</option>
+          <option value="dark" ${settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
+          <option value="tokyo-night" ${settings.theme === 'tokyo-night' ? 'selected' : ''}>Tokyo Night</option>
+          <option value="mariana" ${settings.theme === 'mariana' ? 'selected' : ''}>Mariana</option>
+        </select>
+        <button type="button" class="settings-link-btn" id="setting-manage-plugins">Plugins…</button>
+      </div>
     </div>
 
     <div class="settings-section">
@@ -97,10 +102,31 @@ export function openSettings(): void {
 
   overlay.appendChild(panel);
 
-  // Theme
-  panel.querySelector('#setting-theme')!.addEventListener('change', (e) => {
-    const value = (e.target as HTMLSelectElement).value as Settings['theme'];
-    settingsStore.update({ theme: value });
+  // Theme — plugin themes are appended as DOM nodes, since their names come from plugins.
+  const themeSelect = panel.querySelector<HTMLSelectElement>('#setting-theme')!;
+  const pluginThemes = getPluginThemes();
+  if (pluginThemes.length) {
+    const group = document.createElement('optgroup');
+    group.label = 'From plugins';
+    for (const t of pluginThemes) {
+      const option = document.createElement('option');
+      option.value = t.id;
+      option.textContent = t.label;
+      option.title = t.pluginName;
+      option.selected = t.id === settings.theme;
+      group.append(option);
+    }
+    themeSelect.append(group);
+  }
+  themeSelect.addEventListener('change', () => {
+    const value = themeSelect.value as Settings['theme'];
+    void selectTheme(value).then((ok) => {
+      if (!ok) themeSelect.value = settingsStore.get().theme;
+    });
+  });
+  panel.querySelector('#setting-manage-plugins')!.addEventListener('click', () => {
+    closeSettings();
+    openPlugins();
   });
 
   // Font size

@@ -7,6 +7,7 @@ import {
   moveTabToIndex,
 } from './tab-store';
 import { setEditorModel, getEditor } from '../editor/editor-manager';
+import { openToSide } from '../editor/split-view';
 import { openSettings } from '../settings/settings-panel';
 import { pushRecentlyClosed } from '../file/recently-closed';
 
@@ -103,6 +104,10 @@ export function renderTabBar(): void {
         addItem('Unlock Tab...', () => (window as any).__unlockTabById?.(tab.id));
       } else {
         addItem('Lock Tab...', () => (window as any).__lockTabById?.(tab.id));
+      }
+
+      if (!isLocked) {
+        addItem('Open to the Side', () => openToSide(tab));
       }
 
       addSeparator();

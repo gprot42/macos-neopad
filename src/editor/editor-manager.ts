@@ -4,7 +4,7 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import { registerThemes, themeMap } from './themes';
+import { registerThemes, resolveMonacoTheme } from './themes';
 import { settingsStore } from '../settings/settings-store';
 import type { Tab } from '../tabs/tab-store';
 import { restoreHighlights, clearDecorations } from './text-highlight';
@@ -33,14 +33,25 @@ self.MonacoEnvironment = {
 };
 
 let editor: monaco.editor.IStandaloneCodeEditor | null = null;
+/** Every editor on screen: the main one, plus the split pane's once opened. */
+const editors: monaco.editor.IStandaloneCodeEditor[] = [];
 
 export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCodeEditor {
   registerThemes();
+  editor = createEditor(container);
+  return editor;
+}
 
+/** Create the split pane's editor, set up the same way as the main one. */
+export function createSecondaryEditor(container: HTMLElement): monaco.editor.IStandaloneCodeEditor {
+  return createEditor(container);
+}
+
+function createEditor(container: HTMLElement): monaco.editor.IStandaloneCodeEditor {
   const settings = settingsStore.get();
-  const monacoTheme = themeMap[settings.theme] ?? 'neo-tokyo-night';
+  const monacoTheme = resolveMonacoTheme(settings.theme);
 
-  editor = monaco.editor.create(container, {
+  const editor = monaco.editor.create(container, {
     value: '',
     language: 'plaintext',
     theme: monacoTheme,
@@ -149,24 +160,35 @@ export function initEditor(container: HTMLElement): monaco.editor.IStandaloneCod
     if (wh) (wh as unknown as { stop(): void }).stop();
   } catch { /* ignore if contribution doesn't exist in this build */ }
 
-  // Cmd+Up -> go to top, Cmd+Down -> go to bottom
-  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow, () => {
-    const ed = editor!;
-    ed.setPosition({ lineNumber: 1, column: 1 });
-    ed.revealLine(1);
+  // Cmd+Up -> go to top, Cmd+Down -> go to bottom. Actions rather than
+  // addCommand: with two editors, addCommand keybindings fire on whichever
+  // editor registered last instead of the focused one.
+  editor.addAction({
+    id: 'neopad.go-to-top',
+    label: 'Go to Top',
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow],
+    run: (ed) => {
+      ed.setPosition({ lineNumber: 1, column: 1 });
+      ed.revealLine(1);
+    },
   });
-  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.DownArrow, () => {
-    const ed = editor!;
-    const model = ed.getModel();
-    if (!model) return;
-    const lastLine = model.getLineCount();
-    const lastCol = model.getLineMaxColumn(lastLine);
-    ed.setPosition({ lineNumber: lastLine, column: lastCol });
-    ed.revealLine(lastLine);
+  editor.addAction({
+    id: 'neopad.go-to-bottom',
+    label: 'Go to Bottom',
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.DownArrow],
+    run: (ed) => {
+      const model = ed.getModel();
+      if (!model) return;
+      const lastLine = model.getLineCount();
+      const lastCol = model.getLineMaxColumn(lastLine);
+      ed.setPosition({ lineNumber: lastLine, column: lastCol });
+      ed.revealLine(lastLine);
+    },
   });
 
   guardAgainstStrayDomScroll(editor);
 
+  editors.push(editor);
   return editor;
 }
 
@@ -236,7 +258,7 @@ export function getEditor(): monaco.editor.IStandaloneCodeEditor | null {
 }
 
 export function updateEditorOptions(options: monaco.editor.IEditorOptions): void {
-  editor?.updateOptions({
+  const all = {
     ...options,
     occurrencesHighlight: 'off',
     selectionHighlight: false,
@@ -248,7 +270,8 @@ export function updateEditorOptions(options: monaco.editor.IEditorOptions): void
       includeStrings: false,
     },
     renderControlCharacters: false,
-  });
+  } satisfies monaco.editor.IEditorOptions;
+  editors.forEach((ed) => ed.updateOptions(all));
 }
 
 /** Apply indentation (tab size + spaces/tabs) to all open models. */
@@ -265,8 +288,7 @@ export function applyIndentationToModel(model: monaco.editor.ITextModel): void {
 }
 
 export function setEditorTheme(theme: string): void {
-  const monacoTheme = themeMap[theme] ?? 'neo-tokyo-night';
-  monaco.editor.setTheme(monacoTheme);
+  monaco.editor.setTheme(resolveMonacoTheme(theme));
 }
 
 export function setEditorModel(model: monaco.editor.ITextModel | null): void {
