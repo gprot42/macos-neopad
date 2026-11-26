@@ -9,6 +9,8 @@ export interface Settings {
   /** Insert spaces instead of a tab character when indenting */
   insertSpaces: boolean;
   restoreWindowPosition: boolean;
+  /** Keep the window above other apps' windows (View → Stay on Top) */
+  stayOnTop: boolean;
   /** Whether encrypted (.neo) files auto-lock after a period of inactivity */
   autoLockEnabled: boolean;
   /** Inactivity timeout in minutes before encrypted files are locked */
@@ -38,6 +40,7 @@ const defaults: Settings = {
   tabSize: 2,
   insertSpaces: true,
   restoreWindowPosition: true,
+  stayOnTop: false,
   autoLockEnabled: false,
   autoLockTimeoutMins: 60,
   terminalEnabled: true,

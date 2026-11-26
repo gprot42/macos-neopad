@@ -401,6 +401,10 @@ function showAboutDialog(version: string) {
     case 'about':
       showAboutDialog(arg || '');
       break;
+    case 'stay_on_top':
+      // Rust has already applied it; just remember the choice.
+      settingsStore.update({ stayOnTop: arg === 'true' });
+      break;
     case 'new_file':
     case 'new_tab':
       newFile();
@@ -750,6 +754,13 @@ function applyAutoLockSettings(enabled: boolean, timeoutMins: number): void {
     stopAutoLock();
     log.info('auto-lock disabled');
   }
+}
+
+// Restore Stay on Top from the last session
+if (settingsStore.get().stayOnTop) {
+  invoke('set_stay_on_top', { on: true }).catch((err) =>
+    log.error('set_stay_on_top failed:', err instanceof Error ? err.message : String(err)),
+  );
 }
 
 // Apply initial auto-lock settings

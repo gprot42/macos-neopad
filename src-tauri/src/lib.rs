@@ -1,6 +1,6 @@
 use std::process::Command;
 use std::sync::Mutex;
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_fs::FsExt;
@@ -102,6 +102,26 @@ async fn file_stats(paths: Vec<String>) -> Vec<Option<FileStat>> {
         .collect()
 }
 
+/// The View → Stay on Top menu item, kept so its checkmark can follow the window.
+struct StayOnTopItem(CheckMenuItem<tauri::Wry>);
+
+/// Keep the main window above other apps' windows (or stop), and tick the
+/// menu item to match.
+fn apply_stay_on_top(app: &tauri::AppHandle, on: bool) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_always_on_top(on);
+    }
+    if let Some(item) = app.try_state::<StayOnTopItem>() {
+        let _ = item.0.set_checked(on);
+    }
+}
+
+/// Called by the frontend at startup to restore the saved Stay on Top setting.
+#[tauri::command]
+fn set_stay_on_top(app: tauri::AppHandle, on: bool) {
+    apply_stay_on_top(&app, on);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -118,6 +138,7 @@ pub fn run() {
             read_file_bytes,
             read_file_text,
             file_stats,
+            set_stay_on_top,
             encoding::read_text_file,
             encoding::write_text_file,
             append_log,
@@ -277,6 +298,10 @@ pub fn run() {
             let split_editor = MenuItemBuilder::with_id("split_editor", "Split Editor")
                 .accelerator("CmdOrCtrl+\\")
                 .build(handle)?;
+            let stay_on_top = CheckMenuItemBuilder::with_id("stay_on_top", "Stay on Top")
+                .accelerator("Cmd+Ctrl+T")
+                .build(handle)?;
+            app.manage(StayOnTopItem(stay_on_top.clone()));
             let select_language =
                 MenuItemBuilder::with_id("select_language", "Language...").build(handle)?;
             let wrap_70 = MenuItemBuilder::with_id("wrap_70", "70 Columns").build(handle)?;
@@ -345,6 +370,8 @@ pub fn run() {
                 .item(&toggle_outline)
                 .item(&split_editor)
                 .separator()
+                .item(&stay_on_top)
+                .separator()
                 .item(&toggle_terminal)
                 .separator()
                 .item(&select_language)
@@ -386,6 +413,22 @@ pub fn run() {
                         let _ = window.eval(&format!(
                             "window.__menuAction && window.__menuAction('about', '{}')",
                             version
+                        ));
+                    }
+                    return;
+                }
+                if id == "stay_on_top" {
+                    // The checkmark has already flipped; make the window follow
+                    // it and let the frontend remember the choice.
+                    let on = app_handle
+                        .try_state::<StayOnTopItem>()
+                        .and_then(|item| item.0.is_checked().ok())
+                        .unwrap_or(false);
+                    apply_stay_on_top(app_handle, on);
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.eval(&format!(
+                            "window.__menuAction && window.__menuAction('stay_on_top', '{}')",
+                            on
                         ));
                     }
                     return;

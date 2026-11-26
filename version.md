@@ -1,9 +1,12 @@
 # NeoPad Version
 
 ## Current Version
-0.0.4
+0.0.5
 
 ## Changelog
+
+#### 0.0.5 (2026-11-26)
+- **Stay on Top** (View → Stay on Top, ⌃⌘T): keeps the NeoPad window above other apps' windows until switched off; the choice is remembered between launches
 
 #### 0.0.4 (2026-11-19)
 - **Split view** (View → Split Editor, ⌘\): a second editor pane beside the main one, showing the same file or a different open tab. Right-click a tab → *Open to the Side*, or click the pane's title to choose its tab. Edits on either side appear in both; Save, Find and the status bar follow the pane you are typing in, and ⌘W in the split pane closes the pane
